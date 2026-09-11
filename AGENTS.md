@@ -36,7 +36,7 @@ agent parsed that text and laid it out page by page.
 | Language | **TypeScript** |
 | Styling | **Tailwind CSS v4** (CSS-first config — no `tailwind.config.js`; theme lives in `src/app/globals.css` via `@theme`) |
 | Layout | `src/app/` (App Router), pages are client components |
-| Page-flip | **`react-pageflip`** (wrapper for StPageFlip) — **NOT installed yet, install it** |
+| Page-flip | **`react-pageflip`** (wrapper for StPageFlip) — installed |
 | Font | **Vazirmatn** (Persian-friendly) from Google Fonts — add via `<link>` in `layout.tsx` or `next/font/google` if available |
 | Package manager | **npm** (npm 12) |
 
@@ -221,7 +221,124 @@ an unused port instead of killing theirs.
 
 ## 9. Task log (newest first)
 
-### 2026-09-11 — CURRENT TASK: 3D route removed, booklet enlarged (DONE)
+### 2026-09-11 — CURRENT TASK: first-time guide (README) written (DONE)
+
+1. **Asked for:** "create a guide for a new user that wants to work with this
+   website for the first time" and then commit the changes.
+
+2. **Plan / approach:** the repo had a `README.md`, but it was still the
+   untouched `create-next-app` boilerplate (Geist font, `app/page.tsx`, "Deploy on
+   Vercel") — i.e. actively wrong about this project. Replaced it with a real
+   onboarding guide rather than adding a second doc, so there is one obvious place
+   for a newcomer to start. Audience decided as *developer*, with a short Persian
+   end-user section at the end so the same file also serves whoever just reads the
+   booklet. Everything in it is derived from the code (page list from
+   `bookPages.tsx`, palettes from `PageShell.tsx`, the 120px chrome budget from
+   `globals.css`) — no aspirational/planned features were documented as if they
+   existed. `AGENTS.md` stays the deep reference; the README links to it.
+
+3. **Done:**
+   - `README.md` — rewritten: what the project is, requirements, run/build
+     commands, an annotated file map, how the flip book works (550×733, `showCover`
+     → cover on the right, order in `bookPages.tsx`, keyboard nav), how to edit the
+     text in `src/data/content.ts` + how to add a page, the design system
+     (`accentStyles`/`statusStyles`, decor SVGs, Tailwind v4 CSS-first), the
+     gotchas that actually bite (inline-style wipe on page roots, `forwardRef`,
+     `dir="rtl"`, no scrolling in pages, `.book-stage` budget, no `transform`
+     scaling), a change-check list, deployment, and a فارسی "how to use the
+     booklet" section.
+   - `AGENTS.md` — this entry; the previous cover entry is no longer marked
+     `CURRENT TASK`.
+   - No source code changed in this task.
+
+4. **Verified:** `npx tsc --noEmit`, `npm run build` and `npm run lint` clean at the
+   commit. The README is prose, so the meaningful check was factual: every file
+   path, command, prop, page count (19 = cover + 1..17 + back cover), palette name
+   and CSS class it mentions was re-read from the source afterwards. Nothing in the
+   repo was measured in a browser for this task (none of the code changed).
+
+5. **Left to do:** nothing. Open ideas: a few screenshots in the README (there are
+   none in the repo), and an npm `typecheck` script so the README does not have to
+   tell people to run `npx tsc --noEmit`.
+
+6. **Traps:**
+   - `public/` still holds the `create-next-app` SVGs (`file.svg`, `globe.svg`,
+     `next.svg`, `vercel.svg`, `window.svg`). None are referenced; they were left
+     alone deliberately (deleting them is unrelated churn) — but do not copy the old
+     README's claim that they are used.
+   - The old README documented things this project does not have (Geist font via
+     `next/font`, editing `app/page.tsx`). If you ever see that text come back, it is
+     a bad revert, not a second opinion.
+   - Keep the README honest about the 19-page layout; if you add or remove a page
+     (see §5) update both `AGENTS.md` §5 and the README's page list.
+
+### 2026-09-11 — covers were transparent → real cover design + decor color fix (DONE)
+
+1. **Asked for:** "the covers are transparent but I don't like it that way — create a
+   cute cover." The user had already looked at the site and saw translucent covers.
+
+2. **Plan / approach:** first reproduce it instead of guessing, then fix the *cause*
+   rather than paint over it. Two separate bugs showed up, both confirmed by
+   measurement in the browser (see §4):
+   - **The covers really were transparent.** react-pageflip's HTML renderer assigns
+     `element.style.cssText = ...` on every page root (`drawHard`/`drawSoft`/`simpleDraw`),
+     which **replaces the whole inline `style` attribute**. Both covers set their
+     background with a React `style={{ background: ... }}` prop, so StPageFlip wiped
+     it and the page rendered with `backgroundColor: rgba(0,0,0,0)` — you saw the
+     body gradient through it. All the *other* pages were fine because `PageShell`
+     paints itself with Tailwind classes, which survive. Fix: move the cover
+     backgrounds into CSS classes (`.cover-front`, `.cover-back`, `.cover-dots`,
+     `.cover-spine`) in `globals.css`. **Never set a page root's background (or any
+     other style) inline.**
+   - **Every decorative SVG was solid black.** `Star`, `Sparkle`, `Cloud`, `Heart`,
+     `Flower`'s petals, `Sun` and `Ball`/`Block` had no `fill`, so SVG's default
+     `fill: black` applied and the `text-*` Tailwind classes on them did nothing
+     (measured `fill: rgb(0,0,0)`, `stroke: none`, despite `text-[#A99BE8]/60`).
+     They now paint with `fill="currentColor"` (and `stroke="currentColor"` for the
+     sun's rays), so the existing color classes work as intended. `Flower`'s centre
+     stays yellow and the ball's seams are white.
+   Then the front cover was redesigned as an actual cover: mint→cream gradient,
+   white polka dots, a white sticker frame with a dashed inner line, spine shading +
+   stitching on the bound (left) edge, the baby in a white circular badge, the title
+   in dark green, "آرمان" big, an orange "کتابچه‌ی راهنمای والدین 💛" pill and a row of
+   toy emojis (🐶⚽🧸). The back cover got the mirrored treatment (peach→pink→mint).
+
+3. **Done:**
+   - `src/app/globals.css` — added `.cover-front`, `.cover-back`, `.cover-dots`,
+     `.cover-spine` (with a comment explaining the inline-style trap).
+   - `src/components/pages/cover.tsx` — rewritten front cover, no inline style.
+   - `src/components/pages/closing.tsx` — `BackCoverPage` rewritten the same way.
+   - `src/components/decor.tsx` — `fill="currentColor"` / `stroke="currentColor"`
+     added; header comment now explains the convention.
+
+4. **Verified:** `npx tsc --noEmit`, `npm run build` and `npm run lint` all clean.
+   Live DOM probe against the dev server in headless Chrome (CDP, see §8) — front
+   cover computed background is now the `cover-front` gradient (was `none` +
+   `rgba(0,0,0,0)`), the back cover likewise; a star's computed `fill` is a real
+   color instead of `rgb(0,0,0)`; cover content column occupies y 125→560 inside the
+   685px page (no overflow, `scrollHeight == clientHeight`), back cover content
+   195→490; flipping still works (indicator goes ۱ → ۲ → ۴ of ۱۹ and both visible
+   leaves keep their cream background), back cover reached and measured 514×685
+   with its gradient intact.
+
+5. **Left to do:** nothing required. Open ideas: give `PageShell` its own subtle
+   cover-edge styling so paper pages and covers differ a bit more; the page-indicator
+   reads one behind the back cover (spread index, pre-existing).
+
+6. **Traps:**
+   - **A page root's inline `style` is not yours.** StPageFlip overwrites `cssText`,
+     so backgrounds/transforms/sizes set inline on a page root silently vanish. Use
+     classes. Child elements are unaffected — that is why the page-number pill and
+     the reminder card's inline styles are fine.
+   - Decor SVGs need an explicit `fill`/`stroke`; `text-*` only works because of
+     `currentColor`. If you add a new outline-style decoration, add
+     `stroke="currentColor"` or it will be invisible.
+   - The probe helper (`cdp.mjs`) lived at `../.arman-probe/` (outside the repo) and
+     was deleted after use; recreate it from the §8 recipe rather than assuming it
+     exists. Node 24 has global `fetch`/`WebSocket`, so a ~40-line script is enough;
+     close the probe browser with CDP `Browser.close`, not `taskkill`.
+
+### 2026-09-11 — 3D route removed, booklet enlarged (DONE)
 
 1. **Asked for:** (a) remove the 3D part of the project completely,
    (b) make the booklet bigger in the main (2D) website.
