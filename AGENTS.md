@@ -221,7 +221,102 @@ an unused port instead of killing theirs.
 
 ## 9. Task log (newest first)
 
-### 2026-09-11 — CURRENT TASK: guided tour (spotlight overlay) added (DONE)
+### 2026-09-11 — CURRENT TASK: chevrons, mobile page scaling, page-number agreement (DONE)
+
+1. **Asked for:** (a) rotate the ❯/❮ page-turn chevrons 180° ("their sideways"),
+   (b) some pages have more content than the page height in mobile view — "maybe the
+   content should get smaller if the height wasn't enough", (c) the printed
+   page-number pill (e.g. ۱۱) and the controls indicator («صفحه ۱۲ از ۱۹») disagree.
+
+2. **Plan / approach:**
+   - **Chevrons:** the glyphs were correct for LTR but read as pointing the wrong
+     way here, so each is wrapped in `<span className="inline-block rotate-180">`.
+     Kept the characters (not swapped) so the DOM still says which button is which.
+   - **Mobile overflow — measured before designing.** Pages are laid out with fixed
+     px sizes, and react-pageflip hands them a *box*, never a scale: a phone gets
+     ~366×488 while the design is 550×733, so fixed-size content ran off the bottom
+     (desktop 620×826 only ever hid this by giving extra room). New
+     `PageCanvas.tsx` puts every page's artwork on a fixed 550×733 canvas and
+     scales that canvas with `transform: scale(min(w/550, h/733))`, written from a
+     `ResizeObserver` callback. Decisive measurement first: forcing every page into
+     a 550×733 box showed **0px overflow on all 19 pages**, so scaling is safe and
+     no page has to be shortened. Scaling *up* on desktop (1.127×) also means the
+     typography finally scales with the page, which the "3D route removed" entry
+     below lists as an open idea.
+   - **Numbering — read the library, then the DOM.** In `showSpread()` StPageFlip
+     does `setLeftPage(spread[0]) / setRightPage(spread[1])` and then
+     `currentPageIndex = spread[0]`, while the pills print the page's array index.
+     The old indicator was `index + 1`, so it named the *right* page of a landscape
+     spread and was **one ahead of the printed pill in portrait** (the phone case
+     the user saw). Fixed by printing the same numbers the pages print: the covers
+     are named («جلد کتاب» / «پشت جلد») and a landscape spread names both visible
+     pages («صفحه‌های ۱۱ و ۱۲ از ۱۷»). The spread size is measured from the drawn
+     pages (`.stf__item` with a non-zero width) because the library exposes no
+     orientation getter — `countVisiblePages()` in `Booklet.tsx`.
+
+3. **Done:**
+   - `src/components/PageCanvas.tsx` — new: exports `PAGE_WIDTH`/`PAGE_HEIGHT`, the
+     measured wrapper + scaled canvas, transform written imperatively (no state, no
+     unscaled flash: `ResizeObserver` fires before paint).
+   - `src/components/pages/PageShell.tsx` — artwork moved onto `PageCanvas`; the
+     solid page colour stays on the page root (so the paper fills the page) while
+     the `paper-dots` texture moved inside the canvas so it scales with the content.
+     Added `data-page-label` to the printed pill (the numbering contract).
+   - `src/components/pages/cover.tsx`, `src/components/pages/closing.tsx`
+     (`BackCoverPage`) — artwork wrapped in `PageCanvas`; gradient classes stay on
+     the page root.
+   - `src/components/Booklet.tsx` — chevrons rotated; `spreadSize` +
+     `countVisiblePages()` + `measureSpread()` (rAF + resize listener); the
+     indicator now renders `positionLabel`, derived with the page's own numbers.
+   - `src/components/GuidedTour.tsx` — the «کجای کتابیم؟» step no longer quotes a
+     stale example number; it explains that the pill shows where you are and that
+     two pages show side by side on big screens.
+   - `README.md` — `PageCanvas` in the file map, a "content scales with the page box"
+     bullet, the new indicator wording, the transform trap corrected (scaling the
+     *content* is fine, scaling the *book* is not), and a mobile clipping check.
+   - `AGENTS.md` — this entry.
+   - No content in `src/data/content.ts` changed.
+
+4. **Verified:** `npx tsc --noEmit`, `npm run lint`, `npm run build` clean. CDP probe
+   over all spreads at **1920x1080, 1366x768, 390x844** (Chrome, own port/profile,
+   `next start`): 256 checks pass, no console errors/exceptions.
+   - Canvas fills the page box exactly at every size (620x826 desktop, 477x636,
+     366x488 phone) and **no page's content escapes the page box** in any spread —
+     each page's max descendant right/bottom is within 0.5px of the page box.
+   - Indicator == printed pills at every step: landscape «صفحه‌های ۱۱ و ۱۲ از ۱۷»
+     while pills ۱۱ and ۱۲ are on screen; phone «صفحه ۱۱ از ۱۷» with pill ۱۱ (the
+     reported bug); cover «جلد کتاب», last leaf «پشت جلد».
+   - Mouse flipping survives the transform: a click on a page flips it, dragging a
+     corner applies the fold `clip-path`, and a drag past the page width completes
+     the flip.
+   - The راهنما tour still opens with its card inside the viewport.
+   - Before/after numbers for the overflow fix (same probe, forced 550x733 box): all
+     19 pages `overflowY 0px`, i.e. the phone overflow was purely the missing scale.
+
+5. **Left to do:** nothing required. Open ideas: cap the desktop scale (1.127x) if
+   the bigger typography is not wanted, and add a page-fill step to the tour.
+
+6. **Traps:**
+   - **Never rebuild `.next` while `next start` is serving from it.** Doing that
+     mid-verification produced a mixed tree: the server rendered the old markup
+     while the new client chunks 404'd, so nothing hydrated (`.stf__item` count 0,
+     indicator stuck at «صفحه ۱ از ۰»). Kill the server, build, start again — the
+     code was fine, the probe was not.
+   - The scaled canvas is a *child* element, which is why an inline `style` is safe
+     there; page roots must still never carry inline styles (StPageFlip rewrites
+     their `cssText`). Same reason the `paper-dots` class had to move off the root:
+     the root keeps the solid colour, the canvas carries the artwork and texture.
+   - `countVisiblePages()` reads the DOM, so it must be measured *after* the landing
+     spread is drawn — hence the `requestAnimationFrame` (and the resize listener
+     for orientation changes). Doing it synchronously inside `onFlip` reports the
+     previous spread.
+   - Page order is still `spread[0]` left / `spread[1]` right (the library is
+     LTR-internal; see §7). The printed page numbers were left exactly as they were
+     — the fix was in the indicator, not in the page order.
+   - `data-page-label` on the printed pill is the numbering contract; the probe uses
+     it to assert indicator/pill agreement. Keep it in sync if pages are renumbered.
+
+### 2026-09-11 — guided tour (spotlight overlay) added (DONE)
 
 1. **Asked for:** "why I don't see a guide" — the user did *not* want the README
    entry below; they clarified they want **something like Spotlight / Guided Tour:

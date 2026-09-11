@@ -50,6 +50,7 @@ src/
 │   ├── Booklet.tsx       "use client" — HTMLFlipBook + controls + keyboard nav
 │   ├── bookPages.tsx     THE page order (index 0 = front cover, 18 = back cover)
 │   ├── GuidedTour.tsx    the راهنما spotlight tour (overlay + instructional cards)
+│   ├── PageCanvas.tsx    fixed 550×733 page canvas, scaled to the real page box
 │   ├── decor.tsx         cute inline SVG shapes (BabyFace, Star, Heart, …)
 │   └── pages/
 │       ├── PageShell.tsx shared paper page + accent/status palettes
@@ -74,6 +75,18 @@ StPageFlip:
 - Pages are sized **550×733** (a fixed ratio) and `size="stretch"` + `autoSize`
   scale them to the viewport. Two pages show side by side on wide screens; below
   ~600px of width the library switches to one page at a time (good for phones).
+- **The page content scales with the page box.** `PageCanvas` lays every page out
+  on a fixed 550×733 canvas and scales that canvas to whatever box the library
+  gives the page (a phone gets ~366×488, a desktop spread ~620×826), so the page
+  proportions are identical at every size: slightly larger typography on desktop,
+  smaller on a phone — instead of fixed-size text overflowing a small page. All
+  19 pages were measured to fit the 550×733 base with 0px overflow.
+- The page-number button shows the **same numbers that are printed on the pages**,
+  and in a landscape spread it names both visible pages, e.g.
+  «صفحههای ۱۱ و ۱۲ از ۱۷»; on a phone it reads «صفحه ۱۱ از ۱۷». The covers are
+  named instead («جلد کتاب» / «پشت جلد») because they carry no number. The
+  printed pill and this indicator both come from the page's index, so they can
+  never disagree again — see `Booklet.tsx`.
 - `showCover` makes the first and last pages *hard* covers — and, importantly,
   puts the cover on the **right**, which is where a Persian book starts.
 - Page order is defined **once**, in `bookPages.tsx`. Reordering pages means
@@ -161,11 +174,13 @@ Rules for content edits:
   files, no downloads, no icon library. They paint with `currentColor`, so size
   them with `h-*`/`w-*` and color them with a Tailwind `text-[#…]` class.
 - **Every page** goes through `PageShell` (dashed inner frame, corner doodles,
-  numbered pill). Covers are the exception: they build their own full-bleed
-  background.
-- **Text sizes** are small on purpose (11–17px) because the page box is 550×733
-  at base. Keep new text inside that scale; a page is meant to be readable at a
-  glance, not dense.
+  numbered pill) and puts its artwork on `PageCanvas`. Covers are the exception:
+  they build their own full-bleed background (but still use `PageCanvas` for
+  their artwork).
+- **Text sizes** are small on purpose (11–17px) because the design canvas is
+  550×733 (see `PageCanvas`, which scales that canvas to the real page box). Keep
+  new text inside that scale; a page is meant to be readable at a glance, not
+  dense.
 
 ## 7. Rules that will bite you
 
@@ -190,8 +205,11 @@ Rules for content edits:
   vertical chrome around the book (page padding 24 + flex gaps 24 + controls row
   48 + hint line 29 + slack). If you add another row of controls or a hint line,
   bump that number or the bottom of the book gets pushed off the viewport. Do not scale the
-  book with a CSS `transform` — StPageFlip reads raw mouse coordinates and
-  corner-drag flipping breaks.
+  flip book itself (`.book-stage`, `.stf__parent`) with a CSS `transform` —
+  StPageFlip reads raw mouse coordinates and corner-drag flipping breaks. Scaling
+  the content *inside* a page (what `PageCanvas` does) is fine: the library only
+  measures the page root, which keeps its real size. Verified by clicking and
+  dragging pages after the change.
 - Write code comments in **English**; all UI text stays in **Persian**.
 
 ## 8. Checking your change
@@ -207,7 +225,8 @@ Then walk the book in the browser (cover → back cover) and confirm:
 - the two densest pages (the games pages, pages ۱۳–۱۵) do not clip or scroll;
 - the arrows and the Left/Right keys both page backwards *and* forwards;
 - a narrow window (≈390px wide) shows one page at a time without a stray
-  horizontal scrollbar;
+  horizontal scrollbar, and **no page content is clipped** (the scaled page fills
+  the page box; check a few of the games pages, ۱۳–۱۵);
 - the **راهنما tour** highlights the right element on every step and its card
   stays fully inside the viewport (check it at ~390px wide too). The tour only
   auto-opens on a fresh profile — clear `arman-booklet-tour-v1` from

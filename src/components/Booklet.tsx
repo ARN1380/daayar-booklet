@@ -17,10 +17,23 @@ interface FlipBookHandle {
   } | null;
 }
 
+/**
+ * How many pages are on screen right now: 2 in a landscape spread, 1 in
+ * portrait (a phone) and 1 for the covers. react-pageflip exposes no
+ * orientation getter, so the drawn pages themselves are the source of truth.
+ */
+function countVisiblePages(): number {
+  if (typeof document === "undefined") return 1;
+  return [...document.querySelectorAll(".stf__item")].filter(
+    (el) => el.getBoundingClientRect().width > 0
+  ).length;
+}
+
 export default function Booklet() {
   const bookRef = useRef<FlipBookHandle | null>(null);
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
+  const [spreadSize, setSpreadSize] = useState(1);
   const [tourOpen, setTourOpen] = useState(false);
 
   // Children are memoized so react-pageflip doesn't re-clone pages on every render.
@@ -71,11 +84,49 @@ export default function Booklet() {
     return () => window.removeEventListener("keydown", onKey);
   }, [flipNext, flipPrev]);
 
-  const onFlip = useCallback((e: { data: number }) => setPage(e.data), []);
-  const onInit = useCallback(() => readTotal(), [readTotal]);
+  // The landing spread is drawn a frame after onFlip fires, so the spread is
+  // measured on the next frames (and again on resize, which can switch the
+  // book between portrait and landscape).
+  const measureSpread = useCallback(() => {
+    requestAnimationFrame(() => setSpreadSize(countVisiblePages()));
+  }, []);
+
+  const onFlip = useCallback(
+    (e: { data: number }) => {
+      setPage(e.data);
+      measureSpread();
+    },
+    [measureSpread]
+  );
+
+  const onInit = useCallback(() => {
+    readTotal();
+    measureSpread();
+  }, [readTotal, measureSpread]);
+
+  useEffect(() => {
+    const onResize = () => measureSpread();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [measureSpread]);
 
   const atStart = page <= 0;
   const atEnd = total > 0 && page >= total - 1;
+
+  /**
+   * Where we are, printed with the SAME numbers the pages themselves show.
+   * The cover and back cover are not numbered, so they get named instead, and
+   * a landscape spread names both of the pages you can see at once.
+   */
+  const contentPages = Math.max(total - 2, 0);
+  let positionLabel: string;
+  if (page === 0) positionLabel = "جلد کتاب";
+  else if (total > 0 && page >= total - 1) positionLabel = "پشت جلد";
+  else if (spreadSize > 1 && page + 1 <= contentPages)
+    positionLabel = `صفحه‌های ${toFaDigits(page)} و ${toFaDigits(page + 1)} از ${toFaDigits(
+      contentPages
+    )}`;
+  else positionLabel = `صفحه ${toFaDigits(page)} از ${toFaDigits(contentPages)}`;
 
   return (
     <main className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center gap-3 overflow-hidden px-3 py-3">
@@ -134,13 +185,14 @@ export default function Booklet() {
           aria-label="صفحه قبل"
           className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#F0D9B8] bg-white/90 text-xl text-[#D98A3D] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95 disabled:pointer-events-none disabled:opacity-35"
         >
-          ❯
+          {/* the chevron glyphs point the wrong way for an RTL book, so they are flipped */}
+          <span className="inline-block rotate-180">❯</span>
         </button>
         <div
           data-tour="indicator"
           className="rounded-full border-2 border-[#F0D9B8] bg-white/90 px-5 py-2 text-[13px] font-extrabold text-[#8A7566] shadow-sm"
         >
-          صفحه {toFaDigits(page + 1)} از {toFaDigits(total)}
+          {positionLabel}
         </div>
         <button
           type="button"
@@ -149,7 +201,7 @@ export default function Booklet() {
           aria-label="صفحه بعد"
           className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#F0D9B8] bg-white/90 text-xl text-[#D98A3D] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95 disabled:pointer-events-none disabled:opacity-35"
         >
-          ❮
+          <span className="inline-block rotate-180">❮</span>
         </button>
       </div>
 

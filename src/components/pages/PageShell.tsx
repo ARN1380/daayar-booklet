@@ -2,6 +2,7 @@ import { forwardRef, type ReactNode } from "react";
 import type { AccentKey, StatusKey } from "@/data/content";
 import { toFaDigits } from "@/lib/fa";
 import { Sparkle, Star, Heart } from "@/components/decor";
+import PageCanvas from "@/components/PageCanvas";
 
 // ---------- Accent palette (per skill domain) ----------
 
@@ -58,37 +59,45 @@ const PageShell = forwardRef<HTMLDivElement, PageShellProps>(function PageShell(
       dir="rtl"
       lang="fa"
       data-density={hard ? "hard" : undefined}
-      className="relative h-full w-full overflow-hidden rounded-[4px] bg-[#FFF9EF] paper-dots select-none"
+      className="relative h-full w-full overflow-hidden rounded-[4px] bg-[#FFF9EF] select-none"
     >
-      {/* soft inner frame */}
-      <div className="pointer-events-none absolute inset-[10px] rounded-[22px] border-2 border-dashed border-[#F0D9B8]/80" />
+      {/* Everything visual lives on the scaled canvas, so the layout is identical
+          at every page size (see PageCanvas). The solid page colour stays on the
+          root so the paper still fills the whole page. */}
+      <PageCanvas>
+        <div className="paper-dots pointer-events-none absolute inset-0" />
 
-      {/* corner decorations */}
-      <div className="pointer-events-none absolute right-4 top-3 text-right">
-        <Sparkle className="h-4 w-4 text-[#F5B56B]/70" />
-      </div>
-      <div className="pointer-events-none absolute left-4 top-3">
-        <Star className="h-5 w-5 text-[#A99BE8]/60" />
-      </div>
-      <div className="pointer-events-none absolute bottom-8 left-5">
-        <Heart className="h-4 w-4 text-[#F4A3C2]/60" />
-      </div>
-      {corner}
+        {/* soft inner frame */}
+        <div className="pointer-events-none absolute inset-[10px] rounded-[22px] border-2 border-dashed border-[#F0D9B8]/80" />
 
-      {/* content */}
-      <div className="relative z-10 flex h-full flex-col px-7 pb-10 pt-6">{children}</div>
-
-      {/* page number footer */}
-      {pageNumber !== undefined && (
-        <div className="absolute inset-x-0 bottom-2.5 z-10 flex items-center justify-center gap-1.5">
-          <span
-            className="rounded-full px-3 py-0.5 text-[10px] font-bold leading-5"
-            style={{ backgroundColor: accent.soft, color: accent.deep }}
-          >
-            {toFaDigits(pageNumber)}
-          </span>
+        {/* corner decorations */}
+        <div className="pointer-events-none absolute right-4 top-3 text-right">
+          <Sparkle className="h-4 w-4 text-[#F5B56B]/70" />
         </div>
-      )}
+        <div className="pointer-events-none absolute left-4 top-3">
+          <Star className="h-5 w-5 text-[#A99BE8]/60" />
+        </div>
+        <div className="pointer-events-none absolute bottom-8 left-5">
+          <Heart className="h-4 w-4 text-[#F4A3C2]/60" />
+        </div>
+        {corner}
+
+        {/* content */}
+        <div className="relative z-10 flex h-full flex-col px-7 pb-10 pt-6">{children}</div>
+
+        {/* page number footer */}
+        {pageNumber !== undefined && (
+          <div className="absolute inset-x-0 bottom-2.5 z-10 flex items-center justify-center gap-1.5">
+            <span
+              data-page-label={pageNumber}
+              className="rounded-full px-3 py-0.5 text-[10px] font-bold leading-5"
+              style={{ backgroundColor: accent.soft, color: accent.deep }}
+            >
+              {toFaDigits(pageNumber)}
+            </span>
+          </div>
+        )}
+      </PageCanvas>
     </div>
   );
 });
