@@ -66,26 +66,31 @@ body {
  *
  * Landscape (the normal case) shows a two-page spread: because pages keep the
  * 550x733 ratio, spreadHeight = spreadWidth / 1.5, so the width cap comes from
- * the viewport height. 120px is the fixed vertical chrome around the book
- * (page padding, flex gaps, controls row and the hint line).
+ * the viewport height. 132px is the fixed vertical chrome around the book,
+ * measured in the browser: page padding 24 + the two flex gaps 24 + controls
+ * row 48 + hint line 29, plus a few px of slack. If you add another row (or the
+ * hint row grows), remeasure and bump this number or the bottom of the book
+ * gets pushed off the viewport.
  *
  * Below 640px of viewport width react-pageflip switches to portrait (one page
  * at a time), whose height is pageWidth * 733/550 = 1.333 * pageWidth, so the
- * width has to be capped much harder or the page runs off the bottom.
+ * width has to be capped much harder or the page runs off the bottom. There the
+ * hint row wraps to two lines (~56px) but the width is what binds, so the same
+ * budget is safe.
  *
  * The second declaration in each block uses dvh, which saves the mobile URL
  * bar from cutting the book off; it is ignored by browsers that lack it.
  */
 .book-stage {
   width: 100%;
-  max-width: min(1240px, calc((100vh - 120px) * 1.5));
-  max-width: min(1240px, calc((100dvh - 120px) * 1.5));
+  max-width: min(1240px, calc((100vh - 132px) * 1.5));
+  max-width: min(1240px, calc((100dvh - 132px) * 1.5));
 }
 
 @media (max-width: 640px) {
   .book-stage {
-    max-width: calc((100vh - 120px) * 0.75);
-    max-width: calc((100dvh - 120px) * 0.75);
+    max-width: calc((100vh - 132px) * 0.75);
+    max-width: calc((100dvh - 132px) * 0.75);
   }
 }
 

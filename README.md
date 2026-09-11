@@ -49,6 +49,7 @@ src/
 ├── components/
 │   ├── Booklet.tsx       "use client" — HTMLFlipBook + controls + keyboard nav
 │   ├── bookPages.tsx     THE page order (index 0 = front cover, 18 = back cover)
+│   ├── GuidedTour.tsx    the راهنما spotlight tour (overlay + instructional cards)
 │   ├── decor.tsx         cute inline SVG shapes (BabyFace, Star, Heart, …)
 │   └── pages/
 │       ├── PageShell.tsx shared paper page + accent/status palettes
@@ -81,6 +82,36 @@ StPageFlip:
   chrome on the site. Arrow-Left = next page, Arrow-Right = previous page,
   matching RTL reading direction.
 - Exact page design (which page shows what) is documented in `AGENTS.md` §5.
+
+### The guided tour (راهنما)
+
+A first-time visitor gets a **spotlight tour**: the screen dims, a cut-out
+highlights one element at a time, and a small card explains it in Persian.
+
+- The whole tour lives in `src/components/GuidedTour.tsx`. The script is the
+  `steps` array at the top — emoji, title (bold, green), body, an optional
+  `target` CSS selector and a preferred `placement` (`top` / `bottom` / `center`).
+  Steps without a `target` get a centered card over a plain dimmed backdrop.
+- Targets match the `data-tour="…"` attributes that `Booklet.tsx` puts on the
+  book, the controls row and the page-indicator pill (`book`, `controls`,
+  `indicator`). Add `data-tour="x"` to an element in `Booklet.tsx` and
+  `target: '[data-tour="x"]'` to a step to spotlight it.
+- The spotlight is one element with a huge `box-shadow` spread (a cut-out, not
+  four dimming panels), so it also animates smoothly between steps. The card is
+  positioned from the measured target box: `computeLayout()` prefers the
+  requested side and falls back to “float near the bottom” when the target is
+  taller than the viewport (the book is).
+- The tour is **mounted only while it is open** — `{tourOpen && <GuidedTour …/>}`
+  — so mounting restarts it at step 1. Auto-start happens once, 700 ms after
+  load, unless `localStorage['arman-booklet-tour-v1']` is set. The «❓ راهنما»
+  pill next to the hint line re-opens it any time, and closing it sets that flag.
+- While the tour is open it swallows clicks and traps the arrow keys in the
+  **capture phase** (`stopPropagation`), so paging the book with ← / → is
+  disabled until the tour closes. Escape also closes it.
+- Positioning uses `fixed` coordinates measured with `ResizeObserver` +
+  `requestAnimationFrame` + viewport listeners, because the flip book resizes
+  itself with `autoSize`. If you add a step, target something that exists on
+  every page (chrome), not page content.
 
 ## 5. Editing the text (most common task)
 
@@ -152,11 +183,13 @@ Rules for content edits:
 - **No scrolling inside a page.** `PageShell` is `overflow-hidden`. If something
   does not fit, cut text or move it to another page.
 - **Keep the site a booklet only.** No headers, navbars, footers or extra
-  sections — the page controls are the entire UI.
+  sections — the page controls plus the small «❓ راهنما» tour button are the
+  entire UI.
 - **`.book-stage` sizing:** the wrapper width is derived from the viewport height
-  (`max-width: min(1240px, (100dvh - 120px) * 1.5)`). The `120px` is the measured
-  vertical chrome around the book. If you add another row of controls or a hint
-  line, bump that number or the bottom of the book gets clipped. Do not scale the
+  (`max-width: min(1240px, (100dvh - 132px) * 1.5)`). The `132px` is the measured
+  vertical chrome around the book (page padding 24 + flex gaps 24 + controls row
+  48 + hint line 29 + slack). If you add another row of controls or a hint line,
+  bump that number or the bottom of the book gets pushed off the viewport. Do not scale the
   book with a CSS `transform` — StPageFlip reads raw mouse coordinates and
   corner-drag flipping breaks.
 - Write code comments in **English**; all UI text stays in **Persian**.
@@ -174,7 +207,11 @@ Then walk the book in the browser (cover → back cover) and confirm:
 - the two densest pages (the games pages, pages ۱۳–۱۵) do not clip or scroll;
 - the arrows and the Left/Right keys both page backwards *and* forwards;
 - a narrow window (≈390px wide) shows one page at a time without a stray
-  horizontal scrollbar.
+  horizontal scrollbar;
+- the **راهنما tour** highlights the right element on every step and its card
+  stays fully inside the viewport (check it at ~390px wide too). The tour only
+  auto-opens on a fresh profile — clear `arman-booklet-tour-v1` from
+  localStorage, or use the app's own «راهنما» button, to see it again.
 
 ## 9. Deploying
 
@@ -197,3 +234,6 @@ works behind any Node host with `npm run build && npm run start`.
 - **رنگ‌ها:** 🟢 متناسب با سن، 🟡 محدوده‌ی پایش، 🟠 نیاز به ارزیابی بیشتر.
   این رنگ‌ها معنی‌دار هستند، پس تغییری در آن‌ها ندهید.
 - روی موبایل، صفحه‌ها یکی‌یکی و به همان ترتیب نمایش داده می‌شوند.
+- **راهنمای تصویری:** برای بار اول، یک راهنمای کوتاه خودش باز می‌شود و بخش‌های
+  مختلف کتابچه را با نور و توضیح نشون می‌ده. هر وقت خواستید دوباره ببینیدش،
+  روی دکمه‌ی «❓ راهنما» پایین صفحه بزنید.

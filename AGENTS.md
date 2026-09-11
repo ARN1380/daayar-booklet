@@ -173,7 +173,7 @@ Content pages, in reading order (index 0 = cover):
 - **react-pageflip RTL notes:** the library is LTR-internally, which is fine — set `dir="rtl"` on page content. In two-page (landscape) mode spreads show adjacent pages; in portrait/narrow mode pages show one at a time in reading order (good for mobile). The cover shows on the right with `showCover`, matching Persian books. Do **not** reorder the children array to force RTL — it breaks portrait mode.
 - **Page components MUST forward refs** and each page root must accept the `ref` (react-pageflip measures them). Hard covers use `data-density="hard"`.
 - **Text fitting:** pages are fixed-aspect (550×733 base). Use `text-sm`/`text-base`-ish sizes and test the densest pages (games pages with 3–4 cards) so nothing overflows. Overflowing content should be shortened or split across pages rather than made scrollable.
-- **Keep it a booklet only.** No navbars, headers, footers, or extra site content — the page-turn controls (prev/next buttons + page indicator) are the only chrome.
+- **Keep it a booklet only.** No navbars, headers, footers, or extra site content — the page-turn controls (prev/next buttons + page indicator) are the only chrome, plus the small «❓ راهنما» button that re-opens the guided tour (see §9, the 2026-09-11 tour entry).
 - **Persian digits** (۰۹/۰۸/۱۴۰۴) should be preserved as-is from the source.
 - Write code comments in English; UI text stays in Persian.
 
@@ -221,7 +221,118 @@ an unused port instead of killing theirs.
 
 ## 9. Task log (newest first)
 
-### 2026-09-11 — CURRENT TASK: first-time guide (README) written (DONE)
+### 2026-09-11 — CURRENT TASK: guided tour (spotlight overlay) added (DONE)
+
+1. **Asked for:** "why I don't see a guide" — the user did *not* want the README
+   entry below; they clarified they want **something like Spotlight / Guided Tour:
+   an overlay that highlights specific elements and shows instructional cards**.
+   The README stays (it is still the developer guide), but the in-app tour is the
+   thing that was actually requested.
+
+2. **Plan / approach:**
+   - New client component `GuidedTour.tsx` that dims the screen with one element
+     whose huge `box-shadow` spread (`0 0 0 9999px rgba(60,42,32,.62)`) leaves a
+     cut-out — cheaper and easier to animate than four dimming panels or an SVG
+     mask, and it gives a real "spotlight ring" for free.
+   - Steps are a plain `steps` array (emoji + title + body + optional `target`
+     selector + placement) so the Persian copy is editable in one place. Targets
+     are `data-tour="book" | "controls" | "indicator"` attributes on Booklet's
+     chrome, i.e. the tour does **not** depend on component internals, and it only
+     ever highlights chrome that exists on every page (page content changes as you
+     flip, so spotlighting it would break on the next page).
+   - The card position is derived from the measured target box: preferred side,
+     then below, then above, and if the target is taller than the viewport (the
+     book is) it floats near the bottom instead of trying to escape the spotlight.
+   - Reset semantics: the tour is **mounted only while open**, so mounting is the
+     restart — no "reset step" effect. First visit auto-opens it after 700 ms
+     (the book needs a beat to lay itself out); a small «❓ راهنما» pill next to the
+     hint line re-opens it, because a tour that can only ever be seen once is
+     unreachable after the first dismissal. `localStorage['arman-booklet-tour-v1']`
+     (written on close, wrapped in try/catch for private mode) stops the auto-open.
+   - Keyboard: the arrow keys drive the tour in the **capture** phase with
+     `stopPropagation`, otherwise Booklet's own window-level arrow handler would
+     flip the book behind the overlay. Escape closes.
+   - React 19 / Next 16 lint (`react-hooks/set-state-in-effect`) rejects setState
+     called synchronously from an effect body, so all measurement goes through
+     `ResizeObserver` / `requestAnimationFrame` / `setTimeout` **callbacks**.
+     That is also the right mechanism anyway: the flip book resizes itself with
+     `autoSize`, so a one-shot `getBoundingClientRect()` is not reliable.
+
+3. **Done:**
+   - `src/components/GuidedTour.tsx` — new: 5-step tour, spotlight + dim backdrop,
+     instructional card (title, body, progress dots, «۱ از ۵» counter, قبلی/بعدی,
+     «بزن بریم!» on the last step, ✕ close), `TOUR_STORAGE_KEY` export.
+   - `src/components/Booklet.tsx` — `data-tour` on the book stage, the controls row
+     and the page-indicator pill; `tourOpen` state + first-visit auto-start effect +
+     `closeTour`; the hint line is now a row with the «❓ راهنما» button;
+     `{tourOpen && <GuidedTour onClose={closeTour} />}`.
+   - `src/app/globals.css` — `.book-stage` chrome budget **120px → 132px** (both the
+     landscape and the portrait block). The hint row grew from ~17px to 29px once it
+     gained the راهنما button, which pushed the book 4-5px past the viewport bottom on
+     height-limited screens (see Verified). Note for the record: the `120px` in the
+     2026-09-11 "3D route removed / booklet enlarged" entry below is **stale**, 132px
+     is the current value.
+   - `README.md` — file map + a "The guided tour (راهنما)" subsection under §4
+     (how steps/targets/auto-start work, and the capture-phase keyboard trap),
+     a tour bullet in the §8 check list, the booklet-only rule updated, and a
+     Persian paragraph in the end-user section.
+   - `AGENTS.md` — this entry; §7 "keep it a booklet only" now mentions the tour
+     button as the one piece of chrome besides the page controls.
+
+4. **Verified:** `npx tsc --noEmit`, `npm run lint` and `npm run build` clean.
+   CDP probe (scratch script in the OS temp dir, Chrome on its own port/profile,
+   see §8) walked all 5 steps at **1920x1080, 1366x768 and 390x844** against
+   `next start`. For every step the spotlight box equals its `data-tour` target
+   expanded by exactly 10px on all sides (`d(10,10) size(20,20)` against the
+   matching target only), every card stayed fully inside the viewport
+   (`cardFits: true`), the tour ended on «بزن بریم!» and closed with
+   `localStorage['arman-booklet-tour-v1'] === "1"`, re-opening from the «❓ راهنما»
+   button restarted at step 1, and pressing ArrowLeft **advanced the tour while the
+   book's page indicator stayed at «صفحه ۱ از ۱۹»** (`bookDidNotFlip: true`) — the
+   capture-phase trap works. Escape closes. Rerun after the CSS fix: all checks pass
+   at 1920x1080, 1366x768 and 390x844.
+
+   A second probe measured page fit before/after the chrome change. With the taller
+   hint row and the old 120px budget, `documentElement.scrollHeight` exceeded the
+   viewport by 4-5px at 1600x900, 1366x768, 1280x720 and 1024x640 (book bottom +
+   hint bottom past the fold); 1920x1080 and 390x844 were unaffected. After bumping
+   the budget to 132px: `worst overflow: 0` at every size, ~16px of slack on the
+   height-limited ones, book 954x636 at 1366x768 (was 972x648), 1240x826 unchanged at
+   1920x1080, 366x488 at 390x844 where the portrait width is what binds.
+
+5. **Left to do:** nothing required. Open ideas: flip the book to the page a step
+   is talking about (e.g. show the results page during a "what the colors mean"
+   step), add a dedicated step for the 🟢/🟡/🟠 legend, or offer a "skip" that does
+   not mark the tour as seen.
+
+6. **Traps:**
+   - **`data-tour` attributes are the contract.** Renaming/removing one silently
+     degrades that step to a centered card (the code falls back, it does not throw)
+     — so if a step stops highlighting, check the attribute first.
+   - Do **not** move the tour's keydown listener from capture to bubble and do not
+     drop `stopPropagation`: `Booklet.tsx` listens on `window` for the arrow keys,
+     so the book would flip while the overlay is up.
+   - Keep the tour mounted-only-when-open. Rendering it always-on with an `open`
+     prop needs a reset effect, which trips `react-hooks/set-state-in-effect`
+     (that is exactly the lint error this work started from).
+   - The spotlight's `box-shadow` cut-out means the overlay must not gain a
+     `transform`/`filter` ancestor (blur/scale creates a containing block and the
+     fixed coordinates stop matching the target).
+   - The tour card deliberately overlaps the bottom of the book on the
+     "ورق زدن کتابچه" step: the book is taller than the space above/below it. That
+     is the intended fallback, not a positioning bug.
+   - When probing with node on this machine, `/tmp/...` inside a *script* is a
+     literal `C:\tmp\...` (MSYS only rewrites paths in shell arguments). Use paths
+     relative to the script's cwd, e.g. `writeFileSync("report.json", …)`.
+   - **Adding anything to the chrome means remeasuring the `.book-stage` budget.**
+     The 132px is real pixels, not a guess: padding 24 + two 12px flex gaps + 48px
+     controls + 29px hint row. The previous agent's 120px note predates the hint row
+     growing and would have clipped the book.
+   - The tour's auto-open is one-shot per browser profile. A headless probe must
+     clear `arman-booklet-tour-v1` (after the page has loaded — `about:blank` throws
+     on `localStorage`) and reload, or only the first viewport gets the walkthrough.
+
+### 2026-09-11 — first-time guide (README) written (DONE)
 
 1. **Asked for:** "create a guide for a new user that wants to work with this
    website for the first time" and then commit the changes.

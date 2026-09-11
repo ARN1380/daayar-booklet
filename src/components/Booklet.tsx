@@ -5,6 +5,7 @@ import HTMLFlipBook from "react-pageflip";
 import { buildBookPages } from "./bookPages";
 import { toFaDigits } from "@/lib/fa";
 import { Cloud, Heart, Sparkle } from "./decor";
+import GuidedTour, { TOUR_STORAGE_KEY } from "./GuidedTour";
 
 /** Minimal handle exposed by react-pageflip's ref (no bundled types). */
 interface FlipBookHandle {
@@ -20,6 +21,7 @@ export default function Booklet() {
   const bookRef = useRef<FlipBookHandle | null>(null);
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
+  const [tourOpen, setTourOpen] = useState(false);
 
   // Children are memoized so react-pageflip doesn't re-clone pages on every render.
   const pages = useMemo(() => buildBookPages(), []);
@@ -33,6 +35,28 @@ export default function Booklet() {
     // Fallback: in case onInit hasn't fired yet.
     readTotal();
   }, [readTotal]);
+
+  // First visit: open the guided tour once, after the book has laid itself out.
+  useEffect(() => {
+    let seen: string | null = null;
+    try {
+      seen = window.localStorage.getItem(TOUR_STORAGE_KEY);
+    } catch {
+      // Private mode / storage disabled: just show the tour.
+    }
+    if (seen) return;
+    const timer = window.setTimeout(() => setTourOpen(true), 700);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const closeTour = useCallback(() => {
+    try {
+      window.localStorage.setItem(TOUR_STORAGE_KEY, "1");
+    } catch {
+      // Ignore: the tour simply shows again next time.
+    }
+    setTourOpen(false);
+  }, []);
 
   const flipNext = useCallback(() => bookRef.current?.pageFlip()?.flipNext(), []);
   const flipPrev = useCallback(() => bookRef.current?.pageFlip()?.flipPrev(), []);
@@ -68,7 +92,7 @@ export default function Booklet() {
         <Heart className="h-5 w-5 text-[#F4A3C2]/70" />
       </div>
 
-      <div className="book-stage relative z-10">
+      <div className="book-stage relative z-10" data-tour="book">
         <HTMLFlipBook
           ref={bookRef}
           width={550}
@@ -102,7 +126,7 @@ export default function Booklet() {
       </div>
 
       {/* page-turn controls */}
-      <div className="relative z-10 flex items-center gap-3">
+      <div className="relative z-10 flex items-center gap-3" data-tour="controls">
         <button
           type="button"
           onClick={flipPrev}
@@ -112,7 +136,10 @@ export default function Booklet() {
         >
           ❯
         </button>
-        <div className="rounded-full border-2 border-[#F0D9B8] bg-white/90 px-5 py-2 text-[13px] font-extrabold text-[#8A7566] shadow-sm">
+        <div
+          data-tour="indicator"
+          className="rounded-full border-2 border-[#F0D9B8] bg-white/90 px-5 py-2 text-[13px] font-extrabold text-[#8A7566] shadow-sm"
+        >
           صفحه {toFaDigits(page + 1)} از {toFaDigits(total)}
         </div>
         <button
@@ -126,9 +153,20 @@ export default function Booklet() {
         </button>
       </div>
 
-      <p className="relative z-10 text-center text-[11.5px] font-bold text-[#A08A77]">
-        برای ورق زدن، گوشه‌ی صفحه رو بگیر یا از دکمه‌ها استفاده کن 🌸
-      </p>
+      <div className="relative z-10 flex flex-wrap items-center justify-center gap-2.5">
+        <p className="text-center text-[11.5px] font-bold text-[#A08A77]">
+          برای ورق زدن، گوشه‌ی صفحه رو بگیر یا از دکمه‌ها استفاده کن 🌸
+        </p>
+        <button
+          type="button"
+          onClick={() => setTourOpen(true)}
+          className="rounded-full border-2 border-[#F0D9B8] bg-white/90 px-3.5 py-1 text-[11px] font-extrabold text-[#D98A3D] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95"
+        >
+          ❓ راهنما
+        </button>
+      </div>
+
+      {tourOpen && <GuidedTour onClose={closeTour} />}
     </main>
   );
 }
