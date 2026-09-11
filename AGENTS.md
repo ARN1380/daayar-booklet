@@ -230,6 +230,47 @@ an unused port instead of killing theirs.
 
 ## 9. Task log (newest first)
 
+### 2026-09-11 — Covers: spine shadow moved to the bound (right) edge (DONE)
+
+1. **Asked for:** "the shadow on the cover to be on the right side".
+
+2. **Plan / approach:** the spine shading is the bound-edge shadow — the dark
+   band where the book folds, i.e. the edge that faces the centre spine. In the
+   pre-mirror book the cover stood in the right half, so that edge was its LEFT
+   side; after the mirror both covers sit in the left slot and their bound edge
+   is the RIGHT one. So the fix is the same flip for both covers: move the
+   shading (and the front cover's two stitch lines) from `left-0` to `right-0`
+   and reverse the gradient, rather than adding a new shadow.
+
+3. **Done:**
+   - `src/app/globals.css` — `.cover-spine` gradient is now `to left` (Chrome
+     serialises it as `270deg`), so the 0% dark stop starts on the right edge;
+     comment updated to say which edge is the bound one.
+   - `src/components/pages/cover.tsx` — shading `left-0` → `right-0`, stitch
+     lines `left-[16px]`/`left-[22px]` → `right-[16px]`/`right-[22px]`.
+   - `src/components/pages/closing.tsx` — same flip for the back cover.
+   - This supersedes the older covers log entry below, which describes the spine
+     shading and stitching sitting on the bound **(left)** edge — that was
+     correct before the mirror, and is not correct now.
+
+4. **Verified:** `tsc --noEmit`, `npm run lint`, `npm run build` clean. Headless
+   Chrome at 1920×1080 (spread 620px wide per page):
+   - front cover — shading flush with the cover's right edge (`right 960` vs
+     `960`, offset **0px**), sitting in the right half (`left 942` vs centre
+     `650`), both stitch lines at `601`/`594` of 620; computed gradient
+     `linear-gradient(270deg, rgba(47,123,98,0.28) 0%, … 0.08 55%, 0 100%)`;
+   - back cover (last spread) — identical alignment and gradient;
+   - the `cover-front` / `cover-back` backgrounds still render (so the mirror and
+     this change did not disturb the inline-style trap fix).
+   All 10 checks pass. Probe deleted afterwards.
+
+5. **Left to do:** nothing.
+
+6. **Traps:** `to left` is *not* a mistake — with the covers in the left slot the
+   bound edge is the right one, so the gradient has to run right → left. If the
+   book is ever un-mirrored, this has to be flipped back along with the page
+   order (§7).
+
 ### 2026-09-11 — Mirror the booklet into a real Persian (right-to-left) book (DONE)
 
 1. **Asked for:** the *book itself*, not the buttons — "the pages starts on the

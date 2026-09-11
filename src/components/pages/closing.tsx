@@ -107,8 +107,8 @@ export const BackCoverPage = forwardRef<HTMLDivElement>(function BackCoverPage(_
       <PageCanvas>
         <div className="cover-dots absolute inset-0" />
 
-        {/* spine shading mirrors the front cover so the bound edge lines up */}
-        <div className="cover-spine pointer-events-none absolute inset-y-0 left-0 w-4" />
+        {/* spine shading mirrors the front cover: the bound edge is on the right */}
+        <div className="cover-spine pointer-events-none absolute inset-y-0 right-0 w-4" />
 
         {/* sticker-style frame */}
         <div className="pointer-events-none absolute inset-[12px] rounded-[20px] border-[3px] border-white/80" />

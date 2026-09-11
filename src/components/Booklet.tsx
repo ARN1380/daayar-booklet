@@ -215,7 +215,7 @@ export default function Booklet() {
           disabled={atStart}
           aria-label="صفحه قبل"
           title="صفحه قبل"
-          className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#F0D9B8] bg-white/90 text-xl text-[#D98A3D] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95 disabled:pointer-events-none disabled:opacity-35"
+          className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#F0D9B8] bg-white/90 text-xl text-[#D98A3D] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95 disabled:pointer-events-none disabled:opacity-35 rotate-180 pt-1"
         >
           ❯
         </button>
@@ -231,7 +231,7 @@ export default function Booklet() {
           disabled={atEnd}
           aria-label="صفحه بعد"
           title="صفحه بعد"
-          className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#F0D9B8] bg-white/90 text-xl text-[#D98A3D] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95 disabled:pointer-events-none disabled:opacity-35"
+          className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#F0D9B8] bg-white/90 text-xl text-[#D98A3D] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95 disabled:pointer-events-none disabled:opacity-35 rotate-180 pt-1"
         >
           ❮
         </button>

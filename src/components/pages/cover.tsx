@@ -23,10 +23,14 @@ const CoverPage = forwardRef<HTMLDivElement>(function CoverPage(_props, ref) {
       <PageCanvas>
         <div className="cover-dots absolute inset-0" />
 
-        {/* spine shading + stitched binding line on the bound (left) edge */}
-        <div className="cover-spine pointer-events-none absolute inset-y-0 left-0 w-4" />
-        <div className="pointer-events-none absolute inset-y-8 left-[16px] w-px bg-white/70" />
-        <div className="pointer-events-none absolute inset-y-8 left-[22px] w-px bg-white/40" />
+        {/*
+          Spine shading + stitched binding line on the bound edge. The closed
+          cover sits in the left half of the stage, so its bound edge — where the
+          book folds — is on the RIGHT, next to the centre spine.
+        */}
+        <div className="cover-spine pointer-events-none absolute inset-y-0 right-0 w-4" />
+        <div className="pointer-events-none absolute inset-y-8 right-[16px] w-px bg-white/70" />
+        <div className="pointer-events-none absolute inset-y-8 right-[22px] w-px bg-white/40" />
 
         {/* sticker-style frame */}
         <div className="pointer-events-none absolute inset-[12px] rounded-[20px] border-[3px] border-white/80" />

@@ -51,10 +51,14 @@ body {
   background-size: 24px 24px;
 }
 
-/* Spine shading along the bound (left) edge of the covers. */
+/*
+ * Spine shading along the bound edge of the covers. In this mirrored (Persian)
+ * book the spine sits at the right-hand edge of a cover shown in the left slot,
+ * so the shadow is darkest on the RIGHT and fades leftwards.
+ */
 .cover-spine {
   background-image: linear-gradient(
-    to right,
+    to left,
     rgba(47, 123, 98, 0.28) 0%,
     rgba(47, 123, 98, 0.08) 55%,
     rgba(47, 123, 98, 0) 100%
