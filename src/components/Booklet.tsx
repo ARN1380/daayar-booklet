@@ -176,17 +176,23 @@ export default function Booklet() {
         </HTMLFlipBook>
       </div>
 
-      {/* page-turn controls */}
+      {/*
+        Page-turn controls. The row is RTL (the whole document is), so the FIRST
+        button below sits on the RIGHT and the LAST one on the LEFT. In a Persian
+        book forward is to the left, so: right button = previous (arrow pointing
+        right, the way you turn back), left button = next (arrow pointing left).
+        Do not rotate the glyphs — they already point the way the book turns.
+      */}
       <div className="relative z-10 flex items-center gap-3" data-tour="controls">
         <button
           type="button"
           onClick={flipPrev}
           disabled={atStart}
           aria-label="صفحه قبل"
+          title="صفحه قبل"
           className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#F0D9B8] bg-white/90 text-xl text-[#D98A3D] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95 disabled:pointer-events-none disabled:opacity-35"
         >
-          {/* the chevron glyphs point the wrong way for an RTL book, so they are flipped */}
-          <span className="inline-block rotate-180">❯</span>
+          ❯
         </button>
         <div
           data-tour="indicator"
@@ -199,9 +205,10 @@ export default function Booklet() {
           onClick={flipNext}
           disabled={atEnd}
           aria-label="صفحه بعد"
+          title="صفحه بعد"
           className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#F0D9B8] bg-white/90 text-xl text-[#D98A3D] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95 disabled:pointer-events-none disabled:opacity-35"
         >
-          <span className="inline-block rotate-180">❮</span>
+          ❮
         </button>
       </div>
 

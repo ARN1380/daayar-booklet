@@ -94,6 +94,13 @@ StPageFlip:
 - The controls (❯ / ❮ buttons, «صفحه ۳ از ۱۹» pill, hint line) are the only
   chrome on the site. Arrow-Left = next page, Arrow-Right = previous page,
   matching RTL reading direction.
+- **Which button sits on which side is deliberate.** The row inherits `dir="rtl"`,
+  so the *first* button in the markup renders on the **right**. Forward in a
+  Persian book is to the left, so the order is `[prev ❯][indicator][next ❮]` and
+  the controls land **prev on the right, next on the left**.
+  ❯ on the right and ❮ on the left are already correct — do **not** "fix" them
+  with `rotate-180`, which points both arrows backwards (that mistake shipped
+  once; see the AGENTS.md log).
 - Exact page design (which page shows what) is documented in `AGENTS.md` §5.
 
 ### The guided tour (راهنما)

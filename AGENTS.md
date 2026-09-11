@@ -221,7 +221,42 @@ an unused port instead of killing theirs.
 
 ## 9. Task log (newest first)
 
-### 2026-09-11 — CURRENT TASK: chevrons, mobile page scaling, page-number agreement (DONE)
+### 2026-09-11 — Page-turn buttons: next on the left, prev on the right (DONE)
+
+1. **Asked for:** commit the previous work, then fix the page-turn controls: this
+   is a Persian booklet, so **next** belongs on the **left** and **previous** on
+   the **right**.
+
+2. **Plan / approach:** the previous entry's `rotate-180` wrappers were the actual
+   bug — they pointed both arrows *away* from the direction the book turns (a left
+   arrow on the right-hand back button, a right arrow on the left-hand forward
+   button). The row inherits `dir="rtl"` from `<html>`, so the **first** button in
+   the markup renders on the **right**; the existing order
+   `[prev ❯][indicator][next ❮]` therefore already put prev right / next left, and
+   the tour copy, the README and the pre-rotation glyphs all agree on that layout.
+   Answer: delete the rotation, don't reorder anything, and write the rule down in
+   a comment so it is not "fixed" again.
+
+3. **Done:** `src/components/Booklet.tsx` — chevrons back to plain ❯ (prev, right)
+   and ❮ (next, left), `title` attributes on both, plus a comment stating the RTL
+   ordering rule. `README.md` §4 now documents which button sits on which side.
+
+4. **Verified:** `tsc --noEmit`, `npm run lint` and `npm run build` clean.
+   Headless Chrome (fresh page load per viewport) at 1920×1080, 1366×768 and
+   390×844 — 30 checks, all pass: two buttons; `aria-label` «صفحه بعد» on the left
+   (`cx 877`) and «صفحه قبل» on the right (`cx 1043`); glyphs ❮ left / ❯ right;
+   19 pages rendered; clicking the left button moves **forward** («جلد کتاب» →
+   «صفحه‌های ۱ و ۲ از ۱۷» landscape, «صفحه ۱ از ۱۷» portrait) and the right one
+   **back**; 0 uncaught exceptions. Probe deleted afterwards.
+
+5. **Left to do:** nothing.
+
+6. **Traps:** do not re-add the `rotate-180` glyph flip — the chevrons already
+   point the way the book turns. Also: `git status` was already clean when this
+   task started (the previous entry's work is committed as `df0c349`), so
+   "commit first" was a no-op.
+
+### 2026-09-11 — chevrons, mobile page scaling, page-number agreement (DONE)
 
 1. **Asked for:** (a) rotate the ❯/❮ page-turn chevrons 180° ("their sideways"),
    (b) some pages have more content than the page height in mobile view — "maybe the
