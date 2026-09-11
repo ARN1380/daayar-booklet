@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toFaDigits } from "@/lib/fa";
-import { childInfo } from "@/data/content";
+import type { ChildInfo } from "@/data/types";
 
 /** localStorage flag: set once the tour has been finished or skipped. */
 export const TOUR_STORAGE_KEY = "arman-booklet-tour-v1";
@@ -21,46 +21,48 @@ interface TourStep {
  * The tour script (Persian). `target` matches the `data-tour="…"` attributes
  * that Booklet.tsx puts on the book, the controls and the page indicator.
  */
-const steps: TourStep[] = [
-  {
-    emoji: "🌸",
-    title: `به کتابچه‌ی ${childInfo.name} خوش آمدید!`,
-    body:
-      "چند نکته‌ی کوچک رو با هم ببینیم تا راحت‌تر توی کتابچه بگردید. کمتر از نیم دقیقه طول می‌کشه 💛",
-    placement: "center",
-  },
-  {
-    emoji: "📖",
-    title: "ورق زدن کتابچه",
-    body:
-      "گوشه‌ی صفحه رو با ماوس یا انگشت بگیر و بکش تا صفحه ورق بخوره. روی موبایل هم کشیدن انگشت کافیه.",
-    target: '[data-tour="book"]',
-    placement: "bottom",
-  },
-  {
-    emoji: "🔄",
-    title: "دکمه‌های ورق زدن",
-    body:
-      "دکمه‌ی سمت راست (❯) یک صفحه عقب و دکمه‌ی سمت چپ (❮) یک صفحه جلو می‌بره. کلیدهای ← و → روی کیبورد هم کار می‌کنن.",
-    target: '[data-tour="controls"]',
-    placement: "top",
-  },
-  {
-    emoji: "🔢",
-    title: "کجای کتابیم؟",
-    body:
-      "این حباب می‌گه کجای کتاب هستی؛ همون شماره‌ای که پایین صفحه‌ها نوشته شده. روی موبایل یک صفحه و روی صفحه‌های بزرگ‌تر دو صفحه‌ی کنار هم رو نشون می‌ده.",
-    target: '[data-tour="indicator"]',
-    placement: "top",
-  },
-  {
-    emoji: "🌱",
-    title: "حالا نوبت توئه!",
-    body:
-      "هر وقت خواستی این راهنما رو دوباره ببینی، روی «راهنما» پایین صفحه بزن. سفر خوبی توی کتابچه داشته باشی 🌸",
-    placement: "center",
-  },
-];
+function buildSteps(childInfo: ChildInfo): TourStep[] {
+  return [
+    {
+      emoji: "🌸",
+      title: `به کتابچه‌ی ${childInfo.name} خوش آمدید!`,
+      body:
+        "چند نکته‌ی کوچک رو با هم ببینیم تا راحت‌تر توی کتابچه بگردید. کمتر از نیم دقیقه طول می‌کشه 💛",
+      placement: "center",
+    },
+    {
+      emoji: "📖",
+      title: "ورق زدن کتابچه",
+      body:
+        "گوشه‌ی صفحه رو با ماوس یا انگشت بگیر و بکش تا صفحه ورق بخوره. روی موبایل هم کشیدن انگشت کافیه.",
+      target: '[data-tour="book"]',
+      placement: "bottom",
+    },
+    {
+      emoji: "🔄",
+      title: "دکمه‌های ورق زدن",
+      body:
+        "دکمه‌ی سمت راست (❯) یک صفحه عقب و دکمه‌ی سمت چپ (❮) یک صفحه جلو می‌بره. کلیدهای ← و → روی کیبورد هم کار می‌کنن.",
+      target: '[data-tour="controls"]',
+      placement: "top",
+    },
+    {
+      emoji: "🔢",
+      title: "کجای کتابیم؟",
+      body:
+        "این حباب می‌گه کجای کتاب هستی؛ همون شماره‌ای که پایین صفحه‌ها نوشته شده. روی موبایل یک صفحه و روی صفحه‌های بزرگ‌تر دو صفحه‌ی کنار هم رو نشون می‌ده.",
+      target: '[data-tour="indicator"]',
+      placement: "top",
+    },
+    {
+      emoji: "🌱",
+      title: "حالا نوبت توئه!",
+      body:
+        "هر وقت خواستی این راهنما رو دوباره ببینی، روی «راهنما» پایین صفحه بزن. سفر خوبی توی کتابچه داشته باشی 🌸",
+      placement: "center",
+    },
+  ];
+}
 
 // ---------- layout helpers (client-only) ----------
 
@@ -124,6 +126,8 @@ function computeLayout(step: TourStep, rect: Rect | null, cardHeight: number) {
 // ---------- component ----------
 
 interface GuidedTourProps {
+  /** The child the booklet belongs to (used for the welcome step). */
+  childInfo: ChildInfo;
   /** Called when the user finishes, skips or closes the tour. */
   onClose: () => void;
 }
@@ -137,7 +141,8 @@ interface GuidedTourProps {
  * Mount it only while the tour is open — mounting restarts it from step 1,
  * which is why there is no "reset" effect here.
  */
-export default function GuidedTour({ onClose }: GuidedTourProps) {
+export default function GuidedTour({ childInfo, onClose }: GuidedTourProps) {
+  const steps = useMemo(() => buildSteps(childInfo), [childInfo]);
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const [cardHeight, setCardHeight] = useState(CARD_HEIGHT_FALLBACK);
@@ -202,7 +207,7 @@ export default function GuidedTour({ onClose }: GuidedTourProps) {
 
   const goNext = useCallback(() => {
     setIndex((i) => (i >= steps.length - 1 ? i : i + 1));
-  }, []);
+  }, [steps.length]);
 
   const goBack = useCallback(() => {
     setIndex((i) => Math.max(0, i - 1));

@@ -7,22 +7,24 @@ and what still needs to be done. Read it before modifying the codebase.
 
 ## 1. What this project is
 
-A **single-page Next.js website that renders a cute, interactive booklet**
-(flip book) for parents. It presents the results of a **developmental screening
-report for a 10-month-old baby named Arman** (آرمان دلیری). The booklet is
-written in **Persian (Farsi)**, so the whole UI is **right-to-left (RTL)**.
+A **Next.js website built around a cute, interactive booklet** (flip book) for
+parents. Each child has one booklet carrying a **developmental screening report**
+(the first one is for a 10-month-old baby named Arman, آرمان دلیری). The booklet
+is written in **Persian (Farsi)**, so the whole UI is **right-to-left (RTL)**.
 
-The website is **only the booklet** — no navbar, no footer, no extra sections,
-no marketing content. Just the book, its page-turn interaction, and controls to
-flip pages.
-
-The content comes from a plain-text file the user supplied (see §3). An AI
-agent parsed that text and laid it out page by page.
+The public site is a **daayar-branded landing page** (`/`, just the logo + a
+link to daayar.com) plus one flip book per child at `/<slug>`. The **admin area**
+at `/admin` is where booklets are created and edited in the browser (see §5).
+The public booklet draws from `/admin/workbooks`-managed JSON content and
+otherwise the booklet has no navbar, no footer, no marketing content — just the
+book, its page-turn interaction, and controls to flip pages.
 
 ### Core requirements (from the user)
 - Cute, friendly, child/parent-friendly design with cute illustrations.
 - Users must be able to **turn pages** (page-flip animation, works on desktop and mobile).
-- The entire website is the booklet and nothing else.
+- Each child gets their own booklet URL; the admin area creates/edits them.
+- The store of content is **JSON files inside the repo** (`booklets/<slug>.json`),
+  saved to by the editor — no download-to-file workflow.
 - Built with **Next.js**.
 - The booklet text is parsed into pages for a nice UI.
 
@@ -43,16 +45,22 @@ agent parsed that text and laid it out page by page.
 ### Current state (checkpoint — project is BUILT and working)
 
 ✅ Next.js app scaffolded and building cleanly (`npm run build` passes).
-✅ `react-pageflip` installed; flip book works (verified via headless Chrome: all 19 pages render, flip book initializes, no console errors).
-✅ Content compiled from `booklet.txt` (the human-editable plain-text source) into `src/data/content.ts` by `scripts/build-booklet.mjs` — see §3.
+✅ `react-pageflip` installed; flip book works (verified via headless Chrome: all page spreads render, flip book initializes, no console errors).
+✅ Content lives in `booklets/*.json` (one file per child), compiled into `src/data/content-map.ts` by `scripts/build-booklet.mjs` — see §3.
+✅ `/admin` editor edits in the browser and saves back into the same JSON via `POST /admin/api/save` (no download; see §5).
 
-Everything below describes how the code is organized. If you change content, edit **`booklet.txt`** (repo root), then `npm run content` regenerates `src/data/content.ts` — do **not** hand-edit `content.ts` (npm runs the generator automatically before `dev` and `build`). Page numbering lives in `src/components/Booklet.tsx` only if pages are added/removed.
+Everything below describes how the code is organized. Content changes happen in
+the **browser** (`/admin`, see §5) and land in `booklets/*.json`; never hand-edit
+`content-map.ts` (npm regenerates it before every `dev` and `build`). Shared
+types are in `src/data/types.ts` (the only hand-written part of the data layer).
+Page numbering lives in `src/components/Booklet.tsx` only if pages are
+added/removed.
 
 ### Useful commands
 ```bash
 npm run dev        # dev server (usually http://localhost:3001 if 3000 is busy); regenerates booklet content first
 npm run build      # production build (verifies types); regenerates booklet content first
-npm run content    # booklet.txt → src/data/content.ts (runs automatically before dev/build)
+npm run content    # booklets/*.json → src/data/content-map.ts (runs automatically before dev/build)
 npm run lint       # eslint
 ```
 
@@ -60,13 +68,13 @@ npm run lint       # eslint
 
 ## 3. Source content
 
-**The booklet's text now lives in the repo** at `booklet.txt` (a plain,
-Notepad-editable Persian file, format documented at its top). `npm run content`
-(same as `predev`/`prebuild`) runs `scripts/build-booklet.mjs`, which parses it,
-validates the fixed layout constraints (5 domains, 3 statuses, game counts
-3/3/3/4/3, ≤6 skills, ≤5 steps), and regenerates `src/data/content.ts`. Do **not**
-hand-edit `content.ts`. Shared types are in `src/data/types.ts` (the only
-hand-written part of the data layer).
+**The booklet content lives in the repo** as `booklets/<slug>.json` — one full
+`BookletData` object per child (filename == slug == booklet URL). `npm run
+content` (same as `predev`/`prebuild`) runs `scripts/build-booklet.mjs`, which
+reads every file, validates the fixed layout constraints (5 domains, 3 statuses
+🟢🟡🟠, game counts 3/3/3/4/3, ≤6 skills, ≤5 steps), and regenerates
+`src/data/content-map.ts`. Do **not** hand-edit `content-map.ts`. Shared types
+are in `src/data/types.ts` (the only hand-written part of the data layer).
 
 The historical original text lives at (Windows path, outside the repo, kept for
 reference only):
@@ -76,8 +84,9 @@ C:\Users\ARN\Desktop\Any\sare\karname arman.txt
 ```
 
 It is a Persian developmental-screening report card, **not copied into the repo**
-and never read at runtime. `scripts/export-booklet.mjs` seeded `booklet.txt` from
-`content.ts` one time; it is not part of the build.
+and never read at runtime. The current booklet data (`booklets/*.json`) was
+seeded from it via the old plain-text pipeline; the in-browser `/admin` editor
+is now the way content is changed.
 
 ### Structure of the source text
 1. **Cover info** — کارنامه غربالگری رشد آرمان
@@ -141,8 +150,11 @@ Content pages, in reading order (index 0 = cover):
    ```
    (If it fails/hangs on this machine, add `--fetch-timeout=60000 --fetch-retries=1`.)
 
-2. **`src/data/content.ts`** — hard-code the parsed content as typed data
-   (child info, statuses, results table, domain skill descriptions, games per domain, reminder, next-step text). Keep the exact Persian wording from the source file, including emojis.
+2. **`booklets/*.json`** — one full `BookletData` object per child, the source
+   of truth (edited in the browser at `/admin`). `bookPages.tsx` + the page
+   components render it (child info, statuses, results table, domain skill
+   descriptions, games per domain, reminder, next-step text). Keep the exact
+   Persian wording, including emojis.
 
 3. **`src/components/decor.tsx`** — cute reusable SVG components: `BabyFace`, `Star`, `Cloud`, `Heart`, `Flower`, maybe `Sun`/`Balloon`. Small, pure, no dependencies.
 
@@ -166,13 +178,18 @@ Content pages, in reading order (index 0 = cover):
    - Track current page via `onFlip` for page indicators/controls.
    - Every page wrapper must have `dir="rtl"` and `lang="fa"`.
 
-7. **`src/app/page.tsx`** — replace boilerplate: render `<Booklet />` full-screen, centered, nothing else.
+7. **`src/app/page.tsx`** — the daayar landing: logo + title + link to
+   daayar.com, nothing else.
 
 8. **`src/app/layout.tsx`** — `lang="fa" dir="rtl"`, Vazirmatn font, background styling.
 
 9. **`src/app/globals.css`** — Tailwind v4 `@theme` tokens for the pastel palette + Vazirmatn font family + any custom page-flip CSS. Delete all Next.js boilerplate CSS.
 
-10. **Verify:** `npm run build`, then `npm run dev` and click through every page (desktop + narrow/mobile view). Check the page-turn animation, that the closed cover opens on the **left** and a spread shows the lower number on the right, RTL text, and that no content overflows a page.
+10. **`src/app/[slug]/page.tsx`** — SSG booklet page (from `generateStaticParams`),
+    and `src/app/admin/*` — hub, workbook list, editor, and the
+    `POST /admin/api/save` route that writes `booklets/<slug>.json`.
+
+11. **Verify:** `npm run build`, then `npm run dev` and click through every page (desktop + narrow/mobile view). Check the page-turn animation, that the closed cover opens on the **left** and a spread shows the lower number on the right, RTL text, and that no content overflows a page.
 
 ---
 
@@ -235,6 +252,87 @@ an unused port instead of killing theirs.
 ---
 
 ## 9. Task log (newest first)
+
+### 2026-09-11 — JSON storage, /admin routing & save API; daayar landing (DONE)
+
+1. **Asked for:** "i dont want to downlaod the thing to get working. you should
+   store it your self in a json on this project" — the editor must save into the
+   repo's own files, with no download-to-file workflow. Also: the workbook list
+   must move OFF `/` to `/admin/workbooks`, and `/` should only show the daayar
+   icon/title linking to daayar.com.
+
+2. **Plan / approach:** replaced the plain-text pipeline with real data files.
+   `booklets/arman-daliri.json` is now one full `BookletData` object per child
+   (filename == slug); `scripts/build-booklet.mjs` reads/validates every
+   `booklets/*.json` and regenerates `src/data/content-map.ts` (validates 5
+   domains, 3 statuses 🟢🟡🟠 in order, game counts 3/3/3/4/3, ≤6 skills, ≤5
+   steps). Cross-section check is now JSON-driven and compares emoji only (domain
+   3 name differs legitimately between results «حل مسئله» and skills/games «حل
+   مسئله و شناخت»). Saving is a `POST /admin/api/save` route that writes
+   `booklets/<slug>.json` with `fs` (slug regex + minimal shape check; clear
+   Persian errors; read-only-FS error for Vercel). The editor now POSTs to it
+   instead of downloading a txt; the «نمایش متن» modal shows the JSON; the
+   `exportBooklet.ts` writer was deleted. `/` is a daayar splash (logo at
+   `/assets/images/logo.png`, title «دایار», subtitle, link to daayar.com), and
+   the workbook list lives at `/admin/workbooks` with `/admin` as a hub with
+   buttons. `[slug]/page.tsx` is the SSG per-child booklet page
+   (`generateStaticParams` from `SLUG_LIST`, `generateMetadata`, `notFound`).
+
+3. **Done:**
+   - `booklets/arman-daliri.json` — new (migrated from the txt pipeline);
+     `booklets/arman-daliri.txt` deleted from git.
+   - `scripts/build-booklet.mjs` — rewritten: `booklets/*.json` → validate →
+     `src/data/content-map.ts` (imports only `BookletData`); `SLUG_LIST` +
+     `BOOKLETS` exported.
+   - `src/app/admin/api/save/route.ts` — new save endpoint.
+   - `src/app/page.tsx` — daayar landing (logo + «دایار» + link).
+   - `src/app/admin/page.tsx` — hub: buttons to `/admin/workbooks`, `/admin/new`, `/`.
+   - `src/app/admin/workbooks/page.tsx` — new workbook list (view/edit per child).
+   - `src/app/admin/edit/[slug]/page.tsx` and `src/app/admin/new/page.tsx` — new.
+   - `src/app/[slug]/page.tsx` — new SSG booklet page; `src/app/page.tsx` no longer renders the whole book.
+   - `src/components/editor/BookletEditor.tsx` — `saveBooklet()` POSTs to the API;
+     note/slug-hint/modal updated; removed `downloadBooklet`.
+   - `src/components/editor/exportBooklet.ts` — deleted (txt writer). `bookletData.ts`
+     / `validateBooklet.ts` / `types.ts` comments updated to the JSON model.
+   - `src/components/Booklet.tsx` — `content` + `slug` props, edit link →
+     `/admin/edit/<slug>`, passes `childInfo` to the tour.
+   - `public/assets/images/logo.png` — placeholder 96×96 mint square; **the real
+     daayar logo must be supplied by the user** (daayar.com unreachable from the
+     sandbox; no logo on disk).
+   - `README.md` + `AGENTS.md` — rewritten for JSON source of truth, new routes,
+     browser-editor workflow.
+
+4. **Verified:** `npm run content` ✓ (regenerates content-map from JSON); `npx
+   tsc --noEmit` ✓; `npm run lint` ✓ (0 errors; distinct-booklet-name check is a
+   build-only warning); `npm run build` ✓ — routes: `/` static, `/arman-daliri`
+   SSG, `/admin` static, `/admin/api/save` dynamic, `/admin/edit/[slug]`
+   dynamic, `/admin/new` + `/admin/workbooks` static. Live probe against `next
+   start`: all 6 routes HTTP 200; save API wrote `booklets/test-kid.json` then
+   rejected a bad slug and malformed data (Persian errors); test file removed
+   after. Browser (Playwright): `/` shows logo/title/link with no console
+   errors; `/arman-daliri` renders cover left + tour + edit link, flips to
+   spread «صفحههای ۱ و ۲ از ۱۷»; `/admin` hub; `/admin/workbooks` lists
+   آرمان دلیری with /arman-daliri slug + view/edit; editor shows «ذخیره در
+   پروژه» + `booklets/arman-daliri.json` note and loads current content; the
+   on-disk JSON round-trips through the editor's `toContentShape` unchanged.
+
+5. **Left to do:** the user should drop the real daayar logo over
+   `public/assets/images/logo.png`; nothing code-wise is pending.
+
+6. **Traps:**
+   - **There is no `booklet.txt` and no `src/data/content.ts` any more.** Do not
+     trust older §9 entries that describe them; the whole data layer became
+     `booklets/*.json` → `content-map.ts`. The generator's cross-section check
+     must stay JSON-driven and emoji-only (except the intentional name mismatch).
+   - The editor holds `EditorData` and converts via `toContentShape()`; the save
+     request body must use **that** shape (`bookletData` memo, not the editor's
+     working copy) or the page components will render wrong.
+   - `/admin/api/save` uses `fs` — works on local dev/`next start`, fails with a
+     clear Persian error on Vercel (read-only FS). That is expected, not a bug.
+   - `exportBooklet.ts` is gone; do not re-import it. The «نمایش متن» modal now
+     shows JSON (`dir="ltr"` for the code block).
+   - The `.book-stage` chrome budget is exactly **132px** today (see the tour
+     entry); if the `/` landing or admin chrome changes size, remeasure.
 
 ### 2026-09-11 — Plain-text booklet source + build pipeline (DONE)
 

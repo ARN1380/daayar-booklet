@@ -1,317 +1,152 @@
-// booklet.txt → src/data/content.ts
+// booklets/*.json → src/data/content-map.ts
 //
-// Parses the plain-text booklet (Persian, Notepad-editable) and regenerates the
-// TypeScript data file the app renders. Run via `npm run content`
-// (also runs automatically before `dev` and `build`).
+// Reads EVERY booklet JSON file under booklets/ (one per child, filename =
+// slug), validates each one and regenerates the TypeScript data module the app
+// renders: `SLUG_LIST` (for static params / the workbooks list) and `BOOKLETS`
+// (a `Record<slug, BookletData>`). Run via `npm run content` (also runs
+// automatically before `dev` and `build`).
 //
-// The format is documented at the top of booklet.txt itself:
-//   - `# title`         → booklet title (first line, single #)
-//   - `## section`      → section header (do not rename)
-//   - `### …`         → status / domain header
-//   - `#### …`         → child-info field / game header / reminder field
-//   - `- item`          → list item (skill bullets, game steps)
-//   - `;; …`            → comment (ignored)
-//   - empty lines       → ignored; every other line below a header is that
-//                         field's text (several lines are joined with a space)
-//
-// Layout constraints: the booklet has 17 fixed pages (5 domains, game pages
-// 3+3+3+2+2+3 = 16 games). The parser enforces those counts so a text edit can
-// never silently break the page layout.
+// Each file is a BookletData object; the shape and the fixed layout constraints
+// live in src/data/types.ts and here: 5 domains, 3 statuses (🟢🟡🟠 order),
+// game counts 3/3/3/4/3, ≤6 skill bullets, ≤5 game steps, and matching emoji
+// across the three domain tables. `src/app/admin/api/save/route.ts` writes
+// these files, so the /admin editor saves straight into the project (no manual
+// download + drop step).
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const IN = join(root, "booklet.txt");
-const OUT = join(root, "src/data/content.ts");
+const IN_DIR = join(root, "booklets");
+const OUT = join(root, "src/data/content-map.ts");
 
-// --- tiny error helper --------------------------------------------------------
+// --- tiny helpers -------------------------------------------------------------
 
-const fail = (msg, no) => {
-  throw new Error(no === undefined ? msg : `${msg} (خط ${no + 1})`);
+const fail = (msg) => {
+  throw new Error(msg);
 };
-
-// --- lexing helpers -----------------------------------------------------------
-
-const TITLE_RE = /^#\s+(.+)$/;
-const SECTION_RE = /^##\s+(.+)$/;
-const SUB_RE = /^###\s+(.+)$/;
-const FIELD_RE = /^####\s+(.+)$/;
-const BULLET_PREFIX = "-";
-const COMMENT_PREFIX = ";;";
-
-const raw = readFileSync(IN, "utf8").split(/\r?\n/);
-
-const isBlank = (no) => {
-  const t = raw[no].trim();
-  return !t || t.startsWith(COMMENT_PREFIX);
-};
-
-const skipBlank = (i) => {
-  while (i < raw.length && isBlank(i)) i++;
-  return i;
-};
-
-/** Index of the first line of the *next* `## section` (or EOF). */
-const sectionEnd = (i) => {
-  let j = i;
-  while (j < raw.length) {
-    const t = raw[j].trim();
-    if (t && !t.startsWith(COMMENT_PREFIX) && SECTION_RE.test(t)) break;
-    j++;
-  }
-  return j;
-};
-
-/**
- * Splits lines[i..end) into blocks separated by marker lines matching `re`.
- * The first block (before any marker) has header === null. `no` is 0-based.
- */
-const splitByMarker = (i, end, re) => {
-  const blocks = [{ header: null, no: i, lines: [] }];
-  let cur = blocks[0];
-  for (let j = i; j < end; j++) {
-    const t = raw[j].trim();
-    if (!t || t.startsWith(COMMENT_PREFIX)) continue;
-    const m = t.match(re);
-    if (m) {
-      cur = { header: m[1].trim(), no: j, lines: [] };
-      blocks.push(cur);
-    } else {
-      cur.lines.push({ text: t, no: j });
-    }
-  }
-  return blocks.filter((b) => b.header !== null || b.lines.length > 0);
-};
-
-const textLines = (block) => block.lines.filter((l) => !l.text.startsWith(BULLET_PREFIX));
-const bulletLines = (block) => block.lines.filter((l) => l.text.startsWith(BULLET_PREFIX));
-const singleValue = (block) => textLines(block).map((l) => l.text).join(" ");
-const itemLines = (block) => block.lines.map((l) => l.text.trim()).filter(Boolean);
-
-const splitEmojiTitle = (header) => {
-  const parts = header.split(/\s+/);
-  return { emoji: parts[0], name: parts.slice(1).join(" ") };
-};
-
-// --- section parsers ----------------------------------------------------------
-
-function parseChildInfo(i) {
-  const end = sectionEnd(i);
-  const blocks = splitByMarker(i, end, FIELD_RE);
-  if (blocks[0].header === null) fail("بخش «مشخصات کودک» نباید متن خارج از «####» داشته باشد", blocks[0].no);
-  const wanted = [
-    ["نام و نام خانوادگی", "name"],
-    ["تاریخ تولد", "birthDate"],
-    ["تاریخ انجام غربالگری", "screeningDate"],
-    ["سن هنگام غربالگری", "age"],
-    ["غربالگری بعدی", "nextScreeningAt"],
-  ];
-  if (blocks.length !== wanted.length)
-    fail(`در «مشخصات کودک» باید ${wanted.length} فیلد باشد؛ ${blocks.length} پیدا شد`);
-  const childInfo = {};
-  wanted.forEach(([label, key], k) => {
-    const b = blocks[k];
-    if (b.header !== label) fail(`انتظار «${label}» بود ولی «${b.header}» آمد`, b.no);
-    const v = singleValue(b);
-    if (!v) fail(`مقدار «${label}» خالی است`, b.no);
-    childInfo[key] = v;
-  });
-  return { end, childInfo };
-}
-
-function parseStatuses(i) {
-  const end = sectionEnd(i);
-  const blocks = splitByMarker(i, end, SUB_RE);
-  if (blocks[0].header === null) fail("بخش «وضعیت مهارت‌های رشدی» نباید متن خارج از «###» داشته باشد", blocks[0].no);
-  if (blocks.length !== 3)
-    fail(`«وضعیت مهارت‌های رشدی» باید دقیقاً ۳ وضعیت داشته باشد؛ ${blocks.length} پیدا شد`);
-  const emojiKey = { "🟢": "onTrack", "🟡": "monitor", "🟠": "evaluate" };
-  const seen = new Set();
-  const statuses = blocks.map((b) => {
-    const { emoji, name: title } = splitEmojiTitle(b.header);
-    const key = emojiKey[emoji];
-    if (!key) fail(`اموجی «${emoji}» شناخته نشد (باید 🟢، 🟡 یا 🟠 باشد)`, b.no);
-    if (seen.has(emoji)) fail(`وضعیت «${emoji}» تکراری است`, b.no);
-    seen.add(emoji);
-    const description = singleValue(b);
-    if (!description) fail(`توضیح وضعیت «${title}» خالی است`, b.no);
-    return { key, emoji, title, description };
-  });
-  return { end, statuses };
-}
-
-function parseResults(i, { statuses }) {
-  const end = sectionEnd(i);
-  const blocks = splitByMarker(i, end, SUB_RE);
-  if (blocks[0].header === null) fail("بخش «نتیجه غربالگری» نباید متن خارج از «###» داشته باشد", blocks[0].no);
-  if (blocks.length !== 5)
-    fail(`«نتیجه غربالگری» باید دقیقاً ۵ حیطه داشته باشد؛ ${blocks.length} پیدا شد`);
-  const labelToKey = new Map(statuses.map((s) => [s.title, s.key]));
-  const results = blocks.map((b) => {
-    const { emoji, name } = splitEmojiTitle(b.header);
-    const lines = itemLines(b);
-    if (lines.length !== 1)
-      fail(`وضعیت حیطه «${name}» باید در یک خط نوشته شود (یکی از: ${[...labelToKey.keys()].join("، ")})`, b.no);
-    const status = labelToKey.get(lines[0]);
-    if (!status)
-      fail(`وضعیت «${lines[0]}» برای حیطه «${name}» شناخته نشد`, b.no);
-    return { emoji, name, status };
-  });
-  return { end, results };
-}
 
 const ACCENTS = ["blue", "mint", "pink", "lavender", "peach"];
+const GAME_COUNTS = [3, 3, 3, 4, 3];
+const STATUS_BY_EMOJI = { "🟢": "onTrack", "🟡": "monitor", "🟠": "evaluate" };
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-function parseSkills(i) {
-  const end = sectionEnd(i);
-  const blocks = splitByMarker(i, end, SUB_RE);
-  if (blocks[0].header !== null) fail("مقدمه «مهارت‌ها در ۱۰ ماهگی» خالی است", blocks[0].no);
-  const tenMonthsIntro = singleValue(blocks[0]);
-  if (!tenMonthsIntro) fail("مقدمه «مهارت‌ها در ۱۰ ماهگی» خالی است", blocks[0].no);
-  if (blocks.length - 1 !== 5)
-    fail(`در «مهارت‌ها در ۱۰ ماهگی» باید ۵ حیطه باشد؛ ${blocks.length - 1} پیدا شد`);
-  const domainSkills = blocks.slice(1).map((b, idx) => {
-    const { emoji, name } = splitEmojiTitle(b.header);
-    const intro = singleValue(b);
-    const bullets = bulletLines(b).map((l) => l.text.slice(BULLET_PREFIX.length).trim());
-    if (!intro) fail(`مقدمه حیطه «${name}» خالی است`, b.no);
-    if (bullets.length === 0) fail(`برای حیطه «${name}» حداقل یک مهارت با «- » بنویسید`, b.no);
-    if (bullets.length > 6) fail(`برای حیطه «${name}» حداکثر ۶ مهارت مجاز است`, b.no);
-    return { emoji, name, accent: ACCENTS[idx], intro, bullets };
-  });
-  return { end, tenMonthsIntro, domainSkills };
+function check(cond, msg) {
+  if (!cond) fail(msg);
 }
 
-function parseGames(i) {
-  const end = sectionEnd(i);
-  const blocks = splitByMarker(i, end, SUB_RE);
-  if (blocks[0].header !== null) fail("مقدمه «بازی‌ها و فعالیت‌های پیشنهادی» خالی است", blocks[0].no);
-  const gamesIntro = singleValue(blocks[0]);
-  if (!gamesIntro) fail("مقدمه «بازی‌ها و فعالیت‌های پیشنهادی» خالی است", blocks[0].no);
-  if (blocks.length - 1 !== 5)
-    fail(`در «بازی‌ها» باید ۵ حیطه باشد؛ ${blocks.length - 1} پیدا شد`);
-  // Fixed page layout in src/components/bookPages.tsx: games split as 3,3,3,(2+2),3.
-  const expected = [3, 3, 3, 4, 3];
-  const domainGames = blocks.slice(1).map((b, idx) => {
-    const { emoji, name } = splitEmojiTitle(b.header);
-    const games = [];
-    let cur = null;
-    for (const l of b.lines) {
-      if (l.text.startsWith("#### ")) {
-        const parts = splitEmojiTitle(l.text.slice(5));
-        cur = { emoji: parts.emoji, title: parts.name, steps: [], no: l.no };
-        games.push(cur);
-      } else if (l.text.startsWith(BULLET_PREFIX)) {
-        if (!cur) fail(`قدم «- » باید داخل یک بازی باشد (بخش «${name}»)`, l.no);
-        cur.steps.push(l.text.slice(BULLET_PREFIX.length).trim());
-      } else {
-        fail(`در بخش «${name}» این خط باید «#### », «- » یا خالی باشد: «${l.text}»`, l.no);
-      }
-    }
-    if (games.length !== expected[idx]) {
-      const where = expected[idx] === 4 ? " (این حیطه روی دو صفحه تقسیم می‌شود)" : "";
-      fail(
-        `حیطه «${name}» باید دقیقاً ${expected[idx]} بازی داشته باشد${where}؛ ${games.length} پیدا شد`,
-        b.no
-      );
-    }
-    games.forEach((g) => {
-      if (g.steps.length === 0) fail(`بازی «${g.title}» هیچ قدمی ندارد`, g.no);
-      if (g.steps.length > 5) fail(`برای بازی «${g.title}» حداکثر ۵ قدم مجاز است`, g.no);
+/** Validates a parsed BookletData (from a booklets/*.json file). */
+function validateBooklet(b, slug) {
+  const file = `booklets/${slug}.json`;
+  check(slug && SLUG_RE.test(slug), `نام فایل «${file}» slug معتبر نیست (فقط حروف کوچک، عدد و «-»)`);
+  check(b && typeof b === "object", `فایل «${file}» باید یک آبجکت BookletData باشد`);
+  check(typeof b.bookletTitle === "string" && b.bookletTitle.trim() !== "", `«${file}» عنوان کتابچه ندارد`);
+
+  const ci = b.childInfo;
+  check(ci && typeof ci === "object", `«${file}» childInfo ندارد`);
+  for (const key of ["name", "birthDate", "screeningDate", "age", "nextScreeningAt"]) {
+    check(typeof ci?.[key] === "string" && ci[key].trim() !== "", `«${file}» childInfo.${key} خالی است`);
+  }
+
+  check(Array.isArray(b.statuses) && b.statuses.length === 3, `«${file}» باید دقیقاً ۳ وضعیت داشته باشد`);
+  const statusKeys = [];
+  b.statuses.forEach((s, i) => {
+    check(s && typeof s, `وضعیت ${i + 1} در «${file}» ناقص است`);
+    check(STATUS_BY_EMOJI[s.emoji] === s.key, `وضعیت ${i + 1} در «${file}» اموجی/کلید نمی‌خورد (باید 🟢🟡🟠 باشد)`);
+    statusKeys.push(s.key);
+    check(typeof s.title === "string" && s.title.trim() !== "", `عنوان وضعیت ${i + 1} در «${file}» خالی است`);
+    check(typeof s.description === "string" && s.description.trim() !== "", `توضیح وضعیت ${i + 1} در «${file}» خالی است`);
+  });
+  check(
+    statusKeys.join(",") === ["onTrack", "monitor", "evaluate"].join(","),
+    `وضعیت‌های «${file}» باید به ترتیب 🟢 🟡 🟠 باشند`
+  );
+
+  check(Array.isArray(b.results) && b.results.length === 5, `«${file}» باید دقیقاً ۵ نتیجه حیطه داشته باشد`);
+  const keySet = new Set(statusKeys);
+  b.results.forEach((r, i) => {
+    check(r && typeof r.emoji === "string" && r.emoji.trim() !== "", `حیطه ${i + 1} «${file}» اموجی ندارد`);
+    check(typeof r.name === "string" && r.name.trim() !== "", `حیطه ${i + 1} «${file}» نام ندارد`);
+    check(keySet.has(r.status), `وضعیت حیطه «${r.name}» در «${file}» شناخته نشد (باید یکی از وضعیت‌های تعریف‌شده باشد)`);
+  });
+
+  check(typeof b.tenMonthsIntro === "string" && b.tenMonthsIntro.trim() !== "", `مقدمه «مهارت‌ها در ۱۰ ماهگی» در «${file}» خالی است`);
+
+  check(Array.isArray(b.domainSkills) && b.domainSkills.length === 5, `«${file}» باید ۵ حیطه در domainSkills داشته باشد`);
+  b.domainSkills.forEach((d, i) => {
+    check(d.emoji && d.name, `حیطه ${i + 1} «${file}» (domainSkills) ناقص است`);
+    check(d.accent === ACCENTS[i], `accent حیطه ${i + 1} «${file}» باید ${ACCENTS[i]} باشد`);
+    check(typeof d.intro === "string" && d.intro.trim() !== "", `مقدمه حیطه «${d.name}» در «${file}» خالی است`);
+    check(Array.isArray(d.bullets) && d.bullets.length >= 1 && d.bullets.length <= 6, `حیطه «${d.name}» در «${file}» باید ۱ تا ۶ مهارت داشته باشد`);
+    check(d.bullets.every((x) => typeof x === "string" && x.trim() !== ""), `در «${file}» یک مهارت خالی است`);
+  });
+
+  check(typeof b.gamesIntro === "string" && b.gamesIntro.trim() !== "", `مقدمه «بازی‌ها» در «${file}» خالی است`);
+
+  check(Array.isArray(b.domainGames) && b.domainGames.length === 5, `«${file}» باید ۵ حیطه در domainGames داشته باشد`);
+  b.domainGames.forEach((dg, i) => {
+    check(dg.emoji && dg.name, `حیطه ${i + 1} «${file}» (domainGames) ناقص است`);
+    check(dg.accent === ACCENTS[i], `accent حیطه ${i + 1} «${file}» باید ${ACCENTS[i]} باشد`);
+    check(Array.isArray(dg.games) && dg.games.length === GAME_COUNTS[i], `حیطه «${dg.name}» در «${file}» باید دقیقاً ${GAME_COUNTS[i]} بازی داشته باشد`);
+    dg.games.forEach((g, gi) => {
+      check(typeof g.title === "string" && g.title.trim() !== "", `بازی ${gi + 1} حیطه «${dg.name}» در «${file}» عنوان ندارد`);
+      check(typeof g.emoji === "string" && g.emoji.trim() !== "", `بازی ${gi + 1} حیطه «${dg.name}» در «${file}» اموجی ندارد`);
+      check(Array.isArray(g.steps) && g.steps.length >= 1 && g.steps.length <= 5, `بازی «${g.title}» در «${file}» باید ۱ تا ۵ قدم داشته باشد`);
+      check(g.steps.every((x) => typeof x === "string" && x.trim() !== ""), `در «${file}» یک قدم خالی است`);
     });
-    return {
-      emoji,
-      name,
-      accent: ACCENTS[idx],
-      games: games.map((g) => ({ emoji: g.emoji, title: g.title, steps: g.steps })),
-    };
   });
-  return { end, gamesIntro, domainGames };
+
+  check(b.reminder && typeof b.reminder.title === "string" && b.reminder.title.trim() !== "", `یادآوری «${file}» عنوان ندارد`);
+  check(b.reminder && Array.isArray(b.reminder.lines) && b.reminder.lines.some((l) => l.trim() !== ""), `متن یادآوری «${file}» خالی است`);
+
+  check(b.nextStep && typeof b.nextStep.title === "string" && b.nextStep.title.trim() !== "", `قدم بعدی «${file}» عنوان ندارد`);
+  check(b.nextStep && Array.isArray(b.nextStep.lines) && b.nextStep.lines.some((l) => l.trim() !== ""), `متن قدم بعدی «${file}» خالی است`);
+
+  // Cross-section sanity (domain emoji must line up across results/skills/games;
+  // names may differ slightly — "حل مسئله" vs "حل مسئله و شناخت").
+  for (let k = 0; k < 5; k++) {
+    const a = b.results[k];
+    const s = b.domainSkills[k];
+    const g = b.domainGames[k];
+    if (a.emoji !== s.emoji || g.emoji !== s.emoji) {
+      fail(`اموجی حیطه‌ی ${k + 1} در «${file}» باید در نتیجه، مهارت‌ها و بازی‌ها یکسان باشد`);
+    }
+  }
 }
 
-function parseReminder(i) {
-  const end = sectionEnd(i);
-  const blocks = splitByMarker(i, end, FIELD_RE);
-  const titleB = blocks.find((b) => b.header === "عنوان");
-  const textB = blocks.find((b) => b.header === "متن");
-  if (!titleB || !textB) fail("بخش «یادآوری» باید «#### عنوان» و «#### متن» داشته باشد");
-  const title = singleValue(titleB);
-  const lines = itemLines(textB);
-  if (!title) fail("عنوان «یادآوری» خالی است", titleB.no);
-  if (lines.length === 0) fail("«#### متن» یادآوری خالی است", textB.no);
-  return { end, reminder: { emoji: "💛", title, lines } };
-}
+// --- main ---------------------------------------------------------------------
 
-function parseNextStep(i) {
-  const end = sectionEnd(i);
-  const blocks = splitByMarker(i, end, FIELD_RE);
-  const titleB = blocks.find((b) => b.header === "عنوان");
-  const textB = blocks.find((b) => b.header === "متن");
-  if (!titleB || !textB) fail("بخش «قدم بعدی» باید «#### عنوان» و «#### متن» داشته باشد");
-  const title = singleValue(titleB);
-  const lines = itemLines(textB);
-  if (!title) fail("عنوان «قدم بعدی» خالی است", titleB.no);
-  if (lines.length === 0) fail("«#### متن» قدم بعدی خالی است", textB.no);
-  return { end, nextStep: { emoji: "📌", title, lines } };
-}
+const files = readdirSync(IN_DIR)
+  .filter((f) => f.endsWith(".json"))
+  .sort();
 
-// --- main ----------------------------------------------------------------------
+if (files.length === 0) fail(`هیچ فایلی در «${IN_DIR}» پیدا نشد`);
 
-const SECTION_ORDER = [
-  ["مشخصات کودک", parseChildInfo],
-  ["وضعیت مهارت‌های رشدی", parseStatuses],
-  ["نتیجه غربالگری", parseResults],
-  ["مهارت‌ها در ۱۰ ماهگی", parseSkills],
-  ["بازی‌ها و فعالیت‌های پیشنهادی", parseGames],
-  ["یادآوری", parseReminder],
-  ["قدم بعدی", parseNextStep],
-];
-
-const data = {};
-let i = skipBlank(0);
-
-if (i >= raw.length) fail("فایل booklet.txt خالی است");
-const titleMatch = raw[i].trim().match(TITLE_RE);
-if (!titleMatch) fail("کتابچه باید با «# عنوان» شروع شود", i);
-data.bookletTitle = titleMatch[1].trim();
-i++;
-
-for (const [name, fn] of SECTION_ORDER) {
-  i = skipBlank(i);
-  if (i >= raw.length) fail(`بخش «${name}» پیدا نشد`);
-  const m = raw[i].trim().match(SECTION_RE);
-  if (!m || m[1].trim() !== name)
-    fail(`انتظار بخش «${name}» بود ولی «${raw[i].trim()}» پیدا شد`, i);
-  const out = fn(i + 1, data);
-  Object.assign(data, out);
-  i = out.end;
-}
-
-i = skipBlank(i);
-if (i < raw.length) fail(`محتوی ناشناخته بعد از آخرین بخش: «${raw[i].trim()}»`, i);
-
-// --- cross-section sanity (domains must line up across the three tables) ----
-const n = data.domainSkills.length;
-for (let k = 0; k < n; k++) {
-  const a = data.results[k];
-  const b = data.domainSkills[k];
-  const c = data.domainGames[k];
-  if (!a || a.emoji !== b.emoji || c.emoji !== b.emoji)
-    fail(`اموجی حیطه‌ی ${k + 1} در «نتیجه غربالگری»، «مهارت‌ها» و «بازی‌ها» باید یکسان باشد`);
+const booklets = {};
+for (const f of files) {
+  const slug = basename(f, ".json");
+  const raw = JSON.parse(readFileSync(join(IN_DIR, f), "utf8"));
+  validateBooklet(raw, slug);
+  booklets[slug] = raw;
+  console.log(`✓ booklets/${f}  (${slug})`);
 }
 
 // --- render TS -----------------------------------------------------------------
 
 const j = (v) => JSON.stringify(v, null, 2);
 
+const mapBody = Object.entries(booklets)
+  .map(([slug, book]) => `  ${j(slug)}: ${j(book)},`)
+  .join("\n");
+
 const ts = [
   "// ══════════════════════════════════════════════════════════════════",
   "// AUTOGENERATED FILE — do not edit by hand.",
   "//",
-  "// The Persian text of this booklet lives in booklet.txt (repo root).",
-  "// Edit that file, then run:",
+  "// Each child's Persian text lives in its own JSON file under booklets/",
+  "// (one file per child, filename = url slug). The /admin editor saves",
+  "// straight into those files; run:",
   "//",
   "//     npm run content",
   "//",
@@ -319,29 +154,17 @@ const ts = [
   "// Types stay in src/data/types.ts.",
   "// ══════════════════════════════════════════════════════════════════",
   "",
-  'import type { DomainGames, DomainResult, DomainSkill, StatusInfo } from "./types";',
+  'import type { BookletData } from "./types";',
   "",
-  `export const bookletTitle = ${j(data.bookletTitle)};`,
+  "export const SLUG_LIST: string[] = " +
+    j(Object.keys(booklets)) +
+    ";",
   "",
-  `export const childInfo = ${j(data.childInfo)};`,
-  "",
-  `export const statuses: StatusInfo[] = ${j(data.statuses)};`,
-  "",
-  `export const results: DomainResult[] = ${j(data.results)};`,
-  "",
-  `export const tenMonthsIntro = ${j(data.tenMonthsIntro)};`,
-  "",
-  `export const domainSkills: DomainSkill[] = ${j(data.domainSkills)};`,
-  "",
-  `export const gamesIntro = ${j(data.gamesIntro)};`,
-  "",
-  `export const domainGames: DomainGames[] = ${j(data.domainGames)};`,
-  "",
-  `export const reminder = ${j(data.reminder)};`,
-  "",
-  `export const nextStep = ${j(data.nextStep)};`,
+  "export const BOOKLETS: Record<string, BookletData> = {",
+  mapBody,
+  "};",
   "",
 ].join("\n");
 
 writeFileSync(OUT, ts, "utf8");
-console.log("✓ booklet.txt  →  src/data/content.ts");
+console.log(`✓ ${Object.keys(booklets).length} booklet(s)  →  src/data/content-map.ts`);

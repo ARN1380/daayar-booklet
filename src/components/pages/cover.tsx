@@ -1,7 +1,11 @@
 import { forwardRef } from "react";
 import { BabyFace, Cloud, Flower, Heart, Sparkle, Star, Sun } from "@/components/decor";
 import PageCanvas from "@/components/PageCanvas";
-import { childInfo } from "@/data/content";
+import type { ChildInfo } from "@/data/types";
+
+interface CoverPageProps {
+  childInfo: ChildInfo;
+}
 
 /**
  * Front cover (hard page).
@@ -12,7 +16,10 @@ import { childInfo } from "@/data/content";
  * artwork itself sits on the scaled PageCanvas so it keeps its proportions on
  * small screens.
  */
-const CoverPage = forwardRef<HTMLDivElement>(function CoverPage(_props, ref) {
+const CoverPage = forwardRef<HTMLDivElement, CoverPageProps>(function CoverPage(
+  { childInfo: ci },
+  ref
+) {
   return (
     <div
       ref={ref}
@@ -73,7 +80,7 @@ const CoverPage = forwardRef<HTMLDivElement>(function CoverPage(_props, ref) {
             🌱 کارنامه غربالگری رشد
           </h1>
           <p className="text-[42px] font-black leading-[1.25] text-[#C9743A] drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">
-            {childInfo.name}
+            {ci.name}
           </p>
 
           <div className="mt-6 rounded-full bg-[#F5B56B] px-7 py-2 text-[13px] font-black text-white shadow-[0_4px_0_#D98A3D]">
@@ -81,7 +88,7 @@ const CoverPage = forwardRef<HTMLDivElement>(function CoverPage(_props, ref) {
           </div>
 
           <p className="mt-6 text-[12.5px] font-bold leading-7 text-[#3E7F68]">
-            همراه {childInfo.name}، قدم‌به‌قدم در مسیر رشد 🌱
+            همراه {ci.name}، قدم‌به‌قدم در مسیر رشد 🌱
           </p>
 
           <div className="mt-6 flex items-center gap-3 text-[22px] leading-none">

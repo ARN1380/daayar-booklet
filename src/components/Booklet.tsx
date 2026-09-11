@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import HTMLFlipBook from "react-pageflip";
 import {
   buildBookPages,
@@ -11,6 +12,7 @@ import {
 import { toFaDigits } from "@/lib/fa";
 import { Cloud, Heart, Sparkle } from "./decor";
 import GuidedTour, { TOUR_STORAGE_KEY } from "./GuidedTour";
+import type { BookletData } from "@/data/types";
 
 /**
  * The part of react-pageflip's ref handle this component uses (the package
@@ -42,10 +44,10 @@ function isNumbered(
   return page?.kind === "numbered" && typeof page.pageNumber === "number";
 }
 
-export default function Booklet() {
+export default function Booklet({ content, slug }: { content: BookletData; slug: string }) {
   const bookRef = useRef<FlipBookHandle | null>(null);
   // Children are memoized so react-pageflip doesn't re-clone pages on every render.
-  const { nodes: pages, meta } = useMemo(() => buildBookPages(), []);
+  const { nodes: pages, meta } = useMemo(() => buildBookPages(content), [content]);
   // The book opens on whichever page is last in the array = the front cover.
   const [page, setPage] = useState(() => meta.length - 1);
   const [spreadSize, setSpreadSize] = useState(1);
@@ -248,9 +250,16 @@ export default function Booklet() {
         >
           ❓ راهنما
         </button>
+        <Link
+          href={`/admin/edit/${slug}`}
+          title="ویرایش متن کتابچه"
+          className="rounded-full border-2 border-[#F0D9B8] bg-white/90 px-3 py-1 text-[11px] font-extrabold text-[#C9A76E] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95"
+        >
+          ✏️ ویرایش
+        </Link>
       </div>
 
-      {tourOpen && <GuidedTour onClose={closeTour} />}
+      {tourOpen && <GuidedTour childInfo={content.childInfo} onClose={closeTour} />}
     </main>
   );
 }

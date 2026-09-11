@@ -5,7 +5,7 @@ import SkillPage from "./pages/skills";
 import GamePage from "./pages/games";
 import { BackCoverPage, NextStepPage, ReminderPage } from "./pages/closing";
 import PageShell from "./pages/PageShell";
-import { domainGames, domainSkills, gamesIntro } from "@/data/content";
+import type { BookletData } from "@/data/types";
 
 /** What a page is, in booklet terms. The engine itself only knows indices. */
 export type BookPageKind = "spacer" | "back-cover" | "numbered" | "front-cover";
@@ -69,7 +69,8 @@ const SpacerPage = forwardRef<HTMLDivElement>(function SpacerPage(_props, ref) {
  * - "next page" becomes the engine's `flipPrev`, so the LEFT page turns to the
  *   right, the way a Persian book opens (Booklet.tsx does that mapping).
  */
-export function buildBookPages(): BookPages {
+export function buildBookPages(content: BookletData): BookPages {
+  const { domainGames, domainSkills, gamesIntro } = content;
   const gamePages = [
     { key: "g-comm", domain: domainGames[0], intro: gamesIntro, games: domainGames[0].games, pageNumber: 10 },
     { key: "g-gross", domain: domainGames[1], games: domainGames[1].games, pageNumber: 11 },
@@ -81,10 +82,32 @@ export function buildBookPages(): BookPages {
 
   /** The 17 numbered pages, in *reading* order (۱ … ۱۷). */
   const numbered: { node: ReactNode; pageNumber: number }[] = [
-    { node: <ChildInfoPage key="child-info" />, pageNumber: 1 },
-    { node: <StatusLegendPage key="status" />, pageNumber: 2 },
-    { node: <ResultsPage key="results" />, pageNumber: 3 },
-    { node: <TenMonthsIntroPage key="intro" />, pageNumber: 4 },
+    { node: <ChildInfoPage key="child-info" childInfo={content.childInfo} />, pageNumber: 1 },
+    {
+      node: (
+        <StatusLegendPage
+          key="status"
+          childInfo={content.childInfo}
+          statuses={content.statuses}
+        />
+      ),
+      pageNumber: 2,
+    },
+    {
+      node: <ResultsPage key="results" childInfo={content.childInfo} results={content.results} />,
+      pageNumber: 3,
+    },
+    {
+      node: (
+        <TenMonthsIntroPage
+          key="intro"
+          childInfo={content.childInfo}
+          tenMonthsIntro={content.tenMonthsIntro}
+          domainSkills={content.domainSkills}
+        />
+      ),
+      pageNumber: 4,
+    },
     ...domainSkills.map((domain, i) => ({
       node: <SkillPage key={domain.name} domain={domain} pageNumber={i + 5} />,
       pageNumber: i + 5,
@@ -103,8 +126,13 @@ export function buildBookPages(): BookPages {
       ),
       pageNumber: g.pageNumber,
     })),
-    { node: <ReminderPage key="reminder" />, pageNumber: 16 },
-    { node: <NextStepPage key="next-step" />, pageNumber: 17 },
+    { node: <ReminderPage key="reminder" reminder={content.reminder} />, pageNumber: 16 },
+    {
+      node: (
+        <NextStepPage key="next-step" nextStep={content.nextStep} childInfo={content.childInfo} />
+      ),
+      pageNumber: 17,
+    },
   ];
 
   // Reverse = mirror the reading direction. The printed page numbers stay on
@@ -113,9 +141,9 @@ export function buildBookPages(): BookPages {
 
   const nodes: ReactNode[] = [
     <SpacerPage key="spacer" />,
-    <BackCoverPage key="back-cover" />,
+    <BackCoverPage key="back-cover" childInfo={content.childInfo} />,
     ...mirrored.map((p) => p.node),
-    <CoverPage key="cover" />,
+    <CoverPage key="cover" childInfo={content.childInfo} />,
   ];
 
   const meta: BookPageMeta[] = [
