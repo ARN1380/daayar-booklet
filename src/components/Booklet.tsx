@@ -249,14 +249,7 @@ export default function Booklet({ content, slug }: { content: BookletData; slug:
           className="rounded-full border-2 border-[#F0D9B8] bg-white/90 px-3.5 py-1 text-[11px] font-extrabold text-[#D98A3D] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95"
         >
           ❓ راهنما
-        </button>
-        <Link
-          href={`/admin/edit/${slug}`}
-          title="ویرایش متن کتابچه"
-          className="rounded-full border-2 border-[#F0D9B8] bg-white/90 px-3 py-1 text-[11px] font-extrabold text-[#C9A76E] shadow-sm transition hover:scale-105 hover:bg-white active:scale-95"
-        >
-          ✏️ ویرایش
-        </Link>
+        </button>        
       </div>
 
       {tourOpen && <GuidedTour childInfo={content.childInfo} onClose={closeTour} />}
