@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-vazirmatn), "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: linear-gradient(180deg, #fdf3dc 0%, #fdecf3 52%, #e4f7ef 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Soft polka-dot texture used on booklet pages and covers. */
+.paper-dots {
+  background-image: radial-gradient(circle, rgba(245, 181, 107, 0.18) 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
+}
+
+/*
+ * Sizes the flip book as large as the viewport allows.
+ *
+ * Landscape (the normal case) shows a two-page spread: because pages keep the
+ * 550x733 ratio, spreadHeight = spreadWidth / 1.5, so the width cap comes from
+ * the viewport height. 120px is the fixed vertical chrome around the book
+ * (page padding, flex gaps, controls row and the hint line).
+ *
+ * Below 640px of viewport width react-pageflip switches to portrait (one page
+ * at a time), whose height is pageWidth * 733/550 = 1.333 * pageWidth, so the
+ * width has to be capped much harder or the page runs off the bottom.
+ *
+ * The second declaration in each block uses dvh, which saves the mobile URL
+ * bar from cutting the book off; it is ignored by browsers that lack it.
+ */
+.book-stage {
+  width: 100%;
+  max-width: min(1240px, calc((100vh - 120px) * 1.5));
+  max-width: min(1240px, calc((100dvh - 120px) * 1.5));
+}
+
+@media (max-width: 640px) {
+  .book-stage {
+    max-width: calc((100vh - 120px) * 0.75);
+    max-width: calc((100dvh - 120px) * 0.75);
+  }
+}
+
+/* Let the flip book breathe and avoid stray horizontal scrollbars. */
+.stf__parent {
+  margin-inline: auto;
+}
