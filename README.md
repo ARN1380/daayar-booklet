@@ -85,13 +85,27 @@ StPageFlip:
   and in a landscape spread it names both visible pages, e.g.
   «صفحههای ۱۱ و ۱۲ از ۱۷»; on a phone it reads «صفحه ۱۱ از ۱۷». The covers are
   named instead («جلد کتاب» / «پشت جلد») because they carry no number. The
-  printed pill and this indicator both come from the page's index, so they can
-  never disagree again — see `Booklet.tsx`.
-- `showCover` makes the first and last pages *hard* covers — and, importantly,
-  puts the cover on the **right**, which is where a Persian book starts.
-- Page order is defined **once**, in `bookPages.tsx`. Reordering pages means
-  reordering that array (and renumbering `pageNumber`), nothing else.
-- The controls (❯ / ❮ buttons, «صفحه ۳ از ۱۹» pill, hint line) are the only
+  printed pill and this indicator both read the same `meta` descriptors from
+  `bookPages.tsx`, so they can never disagree — see `Booklet.tsx`.
+- **The book is mirrored into a Persian book, and that is done by page order,
+  not by CSS.** StPageFlip is an LTR engine: it paints `spread[0]` on the left,
+  puts index 0 alone on the *right* and turns pages right-to-left. `bookPages.tsx`
+  therefore hands it the pages **reversed**, so the front cover is the *last*
+  index (alone on the **left**), a spread shows the lower number on the **right**
+  (the page a Persian reader takes first) and `flipPrev` is "forward", turning the
+  left page over to the right. A spacer page at index 0 keeps the count even,
+  which is what makes the engine treat that last page as a closed cover; it is
+  never shown (see the guard in `Booklet.tsx`). The layout is therefore:
+
+  ```
+  index    0        1            2    3    …    18     19
+  page     spacer   back cover   p17  p16  …    p1     front cover
+  ```
+
+- Page order is defined **once**, in `bookPages.tsx` (the array plus the `meta`
+  descriptors). Adding or moving a page means editing that file — and keeping
+  the "reverse + spacer" shape, or the mirror breaks.
+- The controls (❯ / ❮ buttons, «صفحه ۳ از ۱۷» pill, hint line) are the only
   chrome on the site. Arrow-Left = next page, Arrow-Right = previous page,
   matching RTL reading direction.
 - **Which button sits on which side is deliberate.** The row inherits `dir="rtl"`,
@@ -200,8 +214,15 @@ Rules for content edits:
   element — react-pageflip measures the DOM node. Covers additionally set
   `data-density="hard"`.
 - **Each page root needs `dir="rtl" lang="fa"`** (or goes through `PageShell`,
-  which already does it). The library itself is LTR internally; do not reorder
-  the children array to fake RTL, it breaks single-page mode.
+  which already does it). The library itself is LTR internally; the right-to-left
+  *book* comes from the reversed page order described in §4 — do not try to
+  mirror it with a CSS `transform`, because StPageFlip reads raw client
+  coordinates and a mirrored element makes corner dragging grab the wrong page.
+- **Keep the engine's flips and the controls mapped.** Because the pages are in
+  reverse, `flipNext` must call the engine's `flipPrev` (and vice versa) — see the
+  two wrappers in `Booklet.tsx`. Any new control (gesture, key, button) has to go
+  through those wrappers, and anything that can land on index 0 (`SPACER_INDEX`)
+  must be blocked or bounced back.
 - **No scrolling inside a page.** `PageShell` is `overflow-hidden`. If something
   does not fit, cut text or move it to another page.
 - **Keep the site a booklet only.** No headers, navbars, footers or extra

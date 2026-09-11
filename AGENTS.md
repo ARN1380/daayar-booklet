@@ -151,7 +151,11 @@ Content pages, in reading order (index 0 = cover):
    import HTMLFlipBook from "react-pageflip";
    ```
    - Props: `width={550} height={733} size="stretch" minWidth={315} maxWidth={1000} minHeight={400} maxHeight={1400} maxShadowOpacity={0.5} showCover mobileScrollSupport className="book"`
-   - `showCover={true}` makes the first/last pages hard covers and shows the **cover on the right** — correct for a Persian book.
+   - `showCover={true}` makes the first/last pages hard covers. StPageFlip is
+     LTR-internally, so it puts index 0 alone on the **right**; the Persian
+     (right-to-left) *book* is produced by handing it the pages in reverse — see
+     §7 and `bookPages.tsx` (the front cover is the **last** index, alone on the
+     left, and `next` is the engine's `flipPrev`).
    - Use a `ref` (`flipBook.getPageFlip()`) for prev/next buttons: `flipNext()` / `flipPrev()`.
    - Track current page via `onFlip` for page indicators/controls.
    - Every page wrapper must have `dir="rtl"` and `lang="fa"`.
@@ -162,7 +166,7 @@ Content pages, in reading order (index 0 = cover):
 
 9. **`src/app/globals.css`** — Tailwind v4 `@theme` tokens for the pastel palette + Vazirmatn font family + any custom page-flip CSS. Delete all Next.js boilerplate CSS.
 
-10. **Verify:** `npm run build`, then `npm run dev` and click through every page (desktop + narrow/mobile view). Check page-turn animation, cover on the right, RTL text, and that no content overflows a page.
+10. **Verify:** `npm run build`, then `npm run dev` and click through every page (desktop + narrow/mobile view). Check the page-turn animation, that the closed cover opens on the **left** and a spread shows the lower number on the right, RTL text, and that no content overflows a page.
 
 ---
 
@@ -170,7 +174,12 @@ Content pages, in reading order (index 0 = cover):
 
 - **npm 12 blocks install scripts.** It may warn: `install-scripts ... blocked because they are not covered by allowScripts`. This is expected and non-fatal; do not fight it. If a package genuinely needs its postinstall, run `npm install-scripts approve <pkg>` or add `"allowScripts"` to `package.json`/`.npmrc`.
 - **Slow network on this machine:** npm fetches can stall for minutes (default fetch-timeout 300 s). Pass `--fetch-timeout=60000 --fetch-retries=1` when installing.
-- **react-pageflip RTL notes:** the library is LTR-internally, which is fine — set `dir="rtl"` on page content. In two-page (landscape) mode spreads show adjacent pages; in portrait/narrow mode pages show one at a time in reading order (good for mobile). The cover shows on the right with `showCover`, matching Persian books. Do **not** reorder the children array to force RTL — it breaks portrait mode.
+- **react-pageflip RTL notes (the booklet is mirrored — read this before touching page order):** the library is LTR-internally, which is fine — `dir="rtl"` goes on the page content. In landscape it paints `spread[0]` on the left and `spread[1]` on the right; in portrait/narrow mode it shows one page at a time in index order. To get a Persian (right-to-left) book, `bookPages.tsx` hands it the pages **reversed**, so index 0 is a spacer, index 1 the back cover, … and the last index is the front cover (alone on the left, the mirror of the engine's closed cover on the right). Consequences you must not forget:
+  - `flipNext` in `Booklet.tsx` calls the engine's **`flipPrev`** and vice versa;
+  - `startPage` must be the **last** index;
+  - the spacer page (`SPACER_INDEX`, index 0) is unreachable from the buttons and the arrow keys, and `onFlip` bounces back if a click/drag lands on it (measured: the reader sees a quick close-and-return, then the back cover again);
+  - do **not** mirror the book with a CSS `transform` instead: StPageFlip measures raw client coordinates, so a mirrored element makes corner dragging grab the wrong page. The page order IS the mirror.
+  - portrait was re-verified after the reversal (cover → ۱..۱۷ → back cover, one page at a time), so the old "reversing breaks portrait" warning no longer applies — but the flip mapping above is what keeps it correct.
 - **Page components MUST forward refs** and each page root must accept the `ref` (react-pageflip measures them). Hard covers use `data-density="hard"`.
 - **Text fitting:** pages are fixed-aspect (550×733 base). Use `text-sm`/`text-base`-ish sizes and test the densest pages (games pages with 3–4 cards) so nothing overflows. Overflowing content should be shortened or split across pages rather than made scrollable.
 - **Keep it a booklet only.** No navbars, headers, footers, or extra site content — the page-turn controls (prev/next buttons + page indicator) are the only chrome, plus the small «❓ راهنما» button that re-opens the guided tour (see §9, the 2026-09-11 tour entry).
@@ -220,6 +229,82 @@ an unused port instead of killing theirs.
 ---
 
 ## 9. Task log (newest first)
+
+### 2026-09-11 — Mirror the booklet into a real Persian (right-to-left) book (DONE)
+
+1. **Asked for:** the *book itself*, not the buttons — "the pages starts on the
+   right but it should be on the left", "the whole thing should be sideways".
+   Reading it as: the closed cover belongs on the **left**, pages turn **left →
+   right**, and in a spread the lower number is on the **right** (the page a
+   Persian reader takes first).
+
+2. **Plan / approach:** StPageFlip is an LTR engine — `showSpread()` paints
+   `spread[0]` left / `spread[1]` right, index 0 alone on the **right**, flips
+   right→left, and its `showCover` spread builder is fixed
+   (`[[0],[1,2],[3,4],…]`, last index alone only when the count is even). It has
+   no RTL/`direction` setting (checked the bundle: every `direction` hit is the
+   internal flip direction, not a locale option).
+   - Option A, rejected: mirror the DOM with `transform: scaleX(-1)` on the
+     book plus each page. StPageFlip computes hit-testing from
+     `getBoundingClientRect()` + raw `clientX` (`getMousePos`, `convertToPage`),
+     so a mirrored element makes the corner you grab flip the *opposite* page.
+   - Option B, **chosen**: hand the engine the pages **reversed**. No coordinate
+     lying, so corner dragging, shadows and the flip animation all keep working
+     unchanged — only the *meaning* of the two engine flips swaps.
+   - Odd page count (19) problem: reversed, the front cover lands at the last
+     index, but the engine only treats the last index as a closed cover when the
+     count is **even**, so the cover would share a spread with p1 instead of
+     standing alone. Fix: a spacer page at index 0 (even count 20) that sits
+     where the mirror of the closed cover would be, i.e. past the back cover.
+
+3. **Done:**
+   - `src/components/bookPages.tsx` — rewritten around `buildBookPages()` →
+     `{ nodes, meta }`. Order is now `[spacer, back cover, p17 … p1, front
+     cover]`; `meta[i]` describes each index so the UI never has to do index
+     arithmetic (`SPACER_INDEX`, `LAST_SPREAD_INDEX` exported).
+   - `src/components/Booklet.tsx` — `flipNext` now calls the engine's `flipPrev`
+     (and vice versa), `startPage` is the last index, the old `total`/`readTotal`
+     state is gone (the indicator derives everything from `meta`), labels are
+     built from the visible *numbered* descriptors in reading order, the arrow
+     keys are gated by `atStart`/`atEnd`, and `onFlip` bounces any landing on
+     `SPACER_INDEX` back to the back cover.
+   - Docs: README §4 gained the reversed-order diagram + the spacer, §7 lost the
+     stale "do not reorder the children array" trap and gained the flip-mapping
+     rules; AGENTS.md §6/§7 updated the same way.
+
+4. **Verified:** `tsc --noEmit`, `npm run lint`, `npm run build` clean. Headless
+   Chrome, fresh load per viewport, **30+ checks all pass**: the book opens with
+   the front cover **alone on the left half** (`cx 650 < 960`) and the indicator
+   «جلد کتاب»; every spread after it shows the **lower number on the right**;
+   walking forward gives the reading order `1,2,3,…,17` exactly once with the
+   indicator walking «صفحههای ۱ و ۲» … «صفحه ۱۷ از ۱۷»; portrait (390×844) runs
+   cover → ۱..۱۷ → back cover, one page at a time; a real corner **click** and a
+   real 620px **drag** of the left page both advance the book; no negative-scale
+   transform anywhere (`matrix(1, 0, 0, 1, 0, 0)`); clicking the left page at the
+   last spread bounces back to the back-cover spread and the spacer ends
+   `display: none` with a 0×0 rect (not visible); 0 uncaught exceptions. Probe
+   scaffolding deleted afterwards.
+
+5. **Left to do:** nothing. Untested by probe: touch swipe (the touch handler
+   funnels through the same engine `start()`/direction code as the mouse path,
+   which was tested).
+
+6. **Traps:**
+   - If a future agent reorders pages, the **reversed** shape must be preserved:
+     front cover last, spacer first, and `flipNext`↔engine `flipPrev`. Breaking
+     it silently un-mirrors the book (or breaks the covers).
+   - `total` from `getPageCount()` is now 20 (19 content + spacer); the indicator
+     intentionally reports ۱۷ (count of numbered pages), which is what the
+     printed pills say. `getPageCount` is still on the `FlipBookHandle` type but
+     nothing calls it.
+   - Probing gotcha that cost time: the guided tour's overlay is `fixed inset-0
+     z-[62]`, so on a fresh profile the tour is open and **every synthetic CDP
+     pointer event is swallowed**. `el.click()` still works (JS dispatch), which
+     is why button checks passed while the drag/click checks silently did
+     nothing. Set `localStorage['arman-booklet-tour-v1'] = 1` and reload before
+     testing gestures, and assert the dialog is gone.
+   - The end-of-book bounce takes **two** full flips (~2s), so measure it after
+     ~3s; at ~1.5s the spacer item still has a non-zero rect mid-animation.
 
 ### 2026-09-11 — Page-turn buttons: next on the left, prev on the right (DONE)
 

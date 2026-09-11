@@ -2,18 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import HTMLFlipBook from "react-pageflip";
-import { buildBookPages } from "./bookPages";
+import {
+  buildBookPages,
+  LAST_SPREAD_INDEX,
+  SPACER_INDEX,
+  type BookPageMeta,
+} from "./bookPages";
 import { toFaDigits } from "@/lib/fa";
 import { Cloud, Heart, Sparkle } from "./decor";
 import GuidedTour, { TOUR_STORAGE_KEY } from "./GuidedTour";
 
-/** Minimal handle exposed by react-pageflip's ref (no bundled types). */
+/**
+ * The part of react-pageflip's ref handle this component uses (the package
+ * ships no types). See bookPages.tsx for why the two flips are swapped over.
+ */
 interface FlipBookHandle {
   pageFlip: () => {
     flipNext: (corner?: "top" | "bottom") => void;
     flipPrev: (corner?: "top" | "bottom") => void;
-    getPageCount: () => number;
-    getCurrentPageIndex: () => number;
   } | null;
 }
 
@@ -29,25 +35,26 @@ function countVisiblePages(): number {
   ).length;
 }
 
+/** Narrows a page descriptor to a numbered page (it has a printed number). */
+function isNumbered(
+  page: BookPageMeta | undefined
+): page is BookPageMeta & { pageNumber: number } {
+  return page?.kind === "numbered" && typeof page.pageNumber === "number";
+}
+
 export default function Booklet() {
   const bookRef = useRef<FlipBookHandle | null>(null);
-  const [page, setPage] = useState(0);
-  const [total, setTotal] = useState(0);
+  // Children are memoized so react-pageflip doesn't re-clone pages on every render.
+  const { nodes: pages, meta } = useMemo(() => buildBookPages(), []);
+  // The book opens on whichever page is last in the array = the front cover.
+  const [page, setPage] = useState(() => meta.length - 1);
   const [spreadSize, setSpreadSize] = useState(1);
   const [tourOpen, setTourOpen] = useState(false);
 
-  // Children are memoized so react-pageflip doesn't re-clone pages on every render.
-  const pages = useMemo(() => buildBookPages(), []);
-
-  const readTotal = useCallback(() => {
-    const flip = bookRef.current?.pageFlip();
-    if (flip) setTotal(flip.getPageCount());
-  }, []);
-
-  useEffect(() => {
-    // Fallback: in case onInit hasn't fired yet.
-    readTotal();
-  }, [readTotal]);
+  /** The front cover sits at the END of the array — see bookPages.tsx. */
+  const coverIndex = meta.length - 1;
+  /** How many numbered pages (۱..۱۷) the booklet has. */
+  const contentPages = meta.filter((m) => m.kind === "numbered").length;
 
   // First visit: open the guided tour once, after the book has laid itself out.
   useEffect(() => {
@@ -71,18 +78,26 @@ export default function Booklet() {
     setTourOpen(false);
   }, []);
 
-  const flipNext = useCallback(() => bookRef.current?.pageFlip()?.flipNext(), []);
-  const flipPrev = useCallback(() => bookRef.current?.pageFlip()?.flipPrev(), []);
+  // The pages are handed to the engine in reverse, so the engine's two flips
+  // are swapped for us: turning FORWARD in this Persian book is the engine's
+  // "previous", which is what turns the LEFT page over to the right.
+  const flipNext = useCallback(() => bookRef.current?.pageFlip()?.flipPrev(), []);
+  const flipPrev = useCallback(() => bookRef.current?.pageFlip()?.flipNext(), []);
 
-  // Keyboard navigation (RTL book: forward is to the left).
+  // The closed cover is the start of the book and the back-cover spread its end.
+  const atStart = page >= coverIndex;
+  const atEnd = page <= LAST_SPREAD_INDEX;
+
+  // Keyboard navigation (RTL book: forward is to the left). Gated at the two
+  // ends exactly like the buttons, so the arrows cannot walk onto the spacer.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") flipNext();
-      if (e.key === "ArrowRight") flipPrev();
+      if (e.key === "ArrowLeft" && !atEnd) flipNext();
+      if (e.key === "ArrowRight" && !atStart) flipPrev();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [flipNext, flipPrev]);
+  }, [flipNext, flipPrev, atStart, atEnd]);
 
   // The landing spread is drawn a frame after onFlip fires, so the spread is
   // measured on the next frames (and again on resize, which can switch the
@@ -93,16 +108,20 @@ export default function Booklet() {
 
   const onFlip = useCallback(
     (e: { data: number }) => {
+      // A drag can overshoot the back cover onto the spacer page. That page only
+      // exists to keep the page count even (see bookPages.tsx), so bounce back
+      // to the back cover — note this is the ENGINE's flipNext, i.e. our prev.
+      if (e.data <= SPACER_INDEX) {
+        window.setTimeout(() => bookRef.current?.pageFlip()?.flipNext(), 60);
+        return;
+      }
       setPage(e.data);
       measureSpread();
     },
     [measureSpread]
   );
 
-  const onInit = useCallback(() => {
-    readTotal();
-    measureSpread();
-  }, [readTotal, measureSpread]);
+  const onInit = useCallback(() => measureSpread(), [measureSpread]);
 
   useEffect(() => {
     const onResize = () => measureSpread();
@@ -110,23 +129,29 @@ export default function Booklet() {
     return () => window.removeEventListener("resize", onResize);
   }, [measureSpread]);
 
-  const atStart = page <= 0;
-  const atEnd = total > 0 && page >= total - 1;
-
   /**
    * Where we are, printed with the SAME numbers the pages themselves show.
-   * The cover and back cover are not numbered, so they get named instead, and
-   * a landscape spread names both of the pages you can see at once.
+   *
+   * In a Persian spread the reader takes the RIGHT page first, so a two-page
+   * spread is named in ascending order («صفحه‌های ۱ و ۲ از ۱۷») — the order you
+   * read it in. Covers carry no number, so they are named instead.
    */
-  const contentPages = Math.max(total - 2, 0);
+  const left = meta[page];
+  const right = spreadSize > 1 ? meta[page + 1] : undefined;
+  const visibleNumbers = [left, right]
+    .filter(isNumbered)
+    .map((m) => m.pageNumber)
+    .sort((a, b) => a - b);
+  const named = [left, right].find((m) => m && m.kind !== "numbered");
+
   let positionLabel: string;
-  if (page === 0) positionLabel = "جلد کتاب";
-  else if (total > 0 && page >= total - 1) positionLabel = "پشت جلد";
-  else if (spreadSize > 1 && page + 1 <= contentPages)
-    positionLabel = `صفحه‌های ${toFaDigits(page)} و ${toFaDigits(page + 1)} از ${toFaDigits(
-      contentPages
-    )}`;
-  else positionLabel = `صفحه ${toFaDigits(page)} از ${toFaDigits(contentPages)}`;
+  if (visibleNumbers.length === 2)
+    positionLabel = `صفحه‌های ${toFaDigits(visibleNumbers[0])} و ${toFaDigits(
+      visibleNumbers[1]
+    )} از ${toFaDigits(contentPages)}`;
+  else if (visibleNumbers.length === 1)
+    positionLabel = `صفحه ${toFaDigits(visibleNumbers[0])} از ${toFaDigits(contentPages)}`;
+  else positionLabel = named?.kind === "front-cover" ? "جلد کتاب" : "پشت جلد";
 
   return (
     <main className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center gap-3 overflow-hidden px-3 py-3">
@@ -153,7 +178,7 @@ export default function Booklet() {
           maxWidth={800}
           minHeight={400}
           maxHeight={1000}
-          startPage={0}
+          startPage={coverIndex}
           drawShadow
           usePortrait
           startZIndex={0}
