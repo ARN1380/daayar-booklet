@@ -1,5 +1,7 @@
 // Cute hand-drawn style SVG decorations. All components accept className for
-// sizing (width/height) and fill colors.
+// sizing (width/height) and color: the shapes are painted with currentColor, so
+// a Tailwind `text-*` class on the component sets the fill (and stroke for the
+// outline-only shapes). Without that, an SVG path defaults to solid black.
 
 interface DecorProps {
   className?: string;
@@ -46,6 +48,7 @@ export function Star({ className }: DecorProps) {
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
       <path
         d="M12 2 L14.6 8.6 L21.5 9.3 L16.3 13.9 L17.8 20.7 L12 17.2 L6.2 20.7 L7.7 13.9 L2.5 9.3 L9.4 8.6 Z"
+        fill="currentColor"
         strokeLinejoin="round"
       />
     </svg>
@@ -58,6 +61,7 @@ export function Cloud({ className }: DecorProps) {
     <svg viewBox="0 0 64 40" className={className} aria-hidden="true">
       <path
         d="M18 36 C9 36 4 30 4 24 C4 17.5 9 13 15.5 12.5 C17.5 7 23 3 29.5 4 C34.5 0.5 42 1.5 45.5 6.5 C52 6 58 10.5 58 17 C58 24 52.5 29 46 29 L20 29 C19 33 15 36 18 36Z"
+        fill="currentColor"
         strokeLinejoin="round"
       />
     </svg>
@@ -70,6 +74,7 @@ export function Heart({ className }: DecorProps) {
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
       <path
         d="M12 21 C5 15.5 2.5 11.5 2.5 8 C2.5 4.8 5 2.5 8 2.5 C9.8 2.5 11.4 3.4 12 4.8 C12.6 3.4 14.2 2.5 16 2.5 C19 2.5 21.5 4.8 21.5 8 C21.5 11.5 19 15.5 12 21Z"
+        fill="currentColor"
         strokeLinejoin="round"
       />
     </svg>
@@ -89,7 +94,7 @@ export function Flower({ className }: DecorProps) {
         [12, 12],
         [36, 36],
       ].map(([cx, cy], i) => (
-        <circle key={i} cx={cx} cy={cy} r="7" />
+        <circle key={i} cx={cx} cy={cy} r="7" fill="currentColor" />
       ))}
       {/* stem */}
       <path d="M24 30 C24 38 20 42 14 45" stroke="#6FA86B" strokeWidth="3" fill="none" strokeLinecap="round" />
@@ -103,6 +108,7 @@ export function Sparkle({ className }: DecorProps) {
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
       <path
         d="M12 2 C13 8 16 11 22 12 C16 13 13 16 12 22 C11 16 8 13 2 12 C8 11 11 8 12 2Z"
+        fill="currentColor"
         strokeLinejoin="round"
       />
     </svg>
@@ -113,7 +119,7 @@ export function Sparkle({ className }: DecorProps) {
 export function Sun({ className }: DecorProps) {
   return (
     <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
-      <circle cx="24" cy="24" r="10" />
+      <circle cx="24" cy="24" r="10" fill="currentColor" />
       {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
         <line
           key={deg}
@@ -121,6 +127,7 @@ export function Sun({ className }: DecorProps) {
           y1="7"
           x2="24"
           y2="13"
+          stroke="currentColor"
           strokeWidth="3.5"
           strokeLinecap="round"
           transform={`rotate(${deg} 24 24)`}
@@ -134,9 +141,9 @@ export function Sun({ className }: DecorProps) {
 export function Ball({ className }: DecorProps) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <circle cx="20" cy="20" r="18" />
-      <path d="M20 2 A18 18 0 0 0 20 38" fill="none" strokeWidth="3" strokeLinecap="round" />
-      <path d="M20 2 A18 18 0 0 1 20 38" fill="none" strokeWidth="3" strokeLinecap="round" opacity="0.55" />
+      <circle cx="20" cy="20" r="18" fill="currentColor" />
+      <path d="M20 2 A18 18 0 0 0 20 38" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="3" strokeLinecap="round" />
+      <path d="M20 2 A18 18 0 0 1 20 38" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
     </svg>
   );
 }
@@ -145,8 +152,8 @@ export function Ball({ className }: DecorProps) {
 export function Block({ className }: DecorProps) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <rect x="6" y="14" width="20" height="20" rx="4" />
-      <rect x="16" y="4" width="18" height="18" rx="4" opacity="0.8" />
+      <rect x="6" y="14" width="20" height="20" rx="4" fill="currentColor" />
+      <rect x="16" y="4" width="18" height="18" rx="4" fill="currentColor" opacity="0.8" />
       <circle cx="16" cy="24" r="2.5" fill="#FFF" opacity="0.9" />
       <circle cx="25" cy="13" r="2.5" fill="#FFF" opacity="0.9" />
     </svg>

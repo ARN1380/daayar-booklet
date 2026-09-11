@@ -23,6 +23,45 @@ body {
 }
 
 /*
+ * ---------------------------------------------------------------------------
+ * Book covers
+ * ---------------------------------------------------------------------------
+ * react-pageflip rewrites the *inline* style attribute of every page root
+ * (`element.style.cssText = ...` in its HTML renderer), so a background set
+ * with a React style={{ background }} prop is wiped out and the page renders
+ * fully transparent. Cover backgrounds therefore come from these classes.
+ */
+.cover-front {
+  background-image:
+    radial-gradient(circle at 16% 10%, rgba(255, 255, 255, 0.75), transparent 44%),
+    radial-gradient(circle at 90% 94%, rgba(255, 255, 255, 0.45), transparent 42%),
+    linear-gradient(158deg, #8fdcc0 0%, #c2ecda 34%, #fff3e1 100%);
+}
+
+.cover-back {
+  background-image:
+    radial-gradient(circle at 86% 8%, rgba(255, 255, 255, 0.7), transparent 44%),
+    radial-gradient(circle at 10% 92%, rgba(255, 255, 255, 0.5), transparent 42%),
+    linear-gradient(158deg, #fff1dd 0%, #fbd9e8 42%, #c9eddc 100%);
+}
+
+/* White polka dots, tuned for the pastel cover gradients. */
+.cover-dots {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.7) 1.7px, transparent 1.7px);
+  background-size: 24px 24px;
+}
+
+/* Spine shading along the bound (left) edge of the covers. */
+.cover-spine {
+  background-image: linear-gradient(
+    to right,
+    rgba(47, 123, 98, 0.28) 0%,
+    rgba(47, 123, 98, 0.08) 55%,
+    rgba(47, 123, 98, 0) 100%
+  );
+}
+
+/*
  * Sizes the flip book as large as the viewport allows.
  *
  * Landscape (the normal case) shows a two-page spread: because pages keep the
