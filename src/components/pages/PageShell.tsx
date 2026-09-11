@@ -1,5 +1,5 @@
 import { forwardRef, type ReactNode } from "react";
-import type { AccentKey, StatusKey } from "@/data/content";
+import type { AccentKey, StatusKey } from "@/data/types";
 import { toFaDigits } from "@/lib/fa";
 import { Sparkle, Star, Heart } from "@/components/decor";
 import PageCanvas from "@/components/PageCanvas";

@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import type { DomainSkill } from "@/data/content";
+import type { DomainSkill } from "@/data/types";
 import PageShell, { PageHeader, accentStyles } from "./PageShell";
 import { Sparkle } from "@/components/decor";
 

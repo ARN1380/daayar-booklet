@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Vazirmatn } from "next/font/google";
 import "./globals.css";
+import { bookletTitle, childInfo } from "@/data/content";
 
 const vazirmatn = Vazirmatn({
   variable: "--font-vazirmatn",
@@ -8,8 +9,8 @@ const vazirmatn = Vazirmatn({
 });
 
 export const metadata: Metadata = {
-  title: "کارنامه غربالگری رشد آرمان",
-  description: "کتابچه‌ی راهنمای والدین برای رشد و شکوفایی آرمان 🌱",
+  title: bookletTitle,
+  description: `کتابچه‌ی راهنمای والدین برای رشد و شکوفایی ${childInfo.name} 🌱`,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

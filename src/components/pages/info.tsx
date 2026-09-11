@@ -50,7 +50,7 @@ export const StatusLegendPage = forwardRef<HTMLDivElement>(function StatusLegend
         emoji="🌱"
         title="وضعیت مهارت‌های رشدی"
         accent={accentStyles.peach}
-        subtitle="نتیجه‌ی ارزیابی پنج حیطه‌ی رشدی آرمان جان با سه توصیف زیر به شما نمایش داده می‌شه. پس با توجه به توضیحات زیر برای گام بعدی مسیر رشد دردونه‌تون تصمیم بگیرین."
+        subtitle={`نتیجه‌ی ارزیابی پنج حیطه‌ی رشدی ${childInfo.name} جان با سه توصیف زیر به شما نمایش داده می‌شه. پس با توجه به توضیحات زیر برای گام بعدی مسیر رشد دردونه‌تون تصمیم بگیرین.`}
       />
 
       <div className="flex flex-1 flex-col gap-2.5">
@@ -85,7 +85,7 @@ export const ResultsPage = forwardRef<HTMLDivElement>(function ResultsPage(_prop
   const needsAttention = results.filter((r) => r.status === "evaluate");
   return (
     <PageShell ref={ref} accent={accentStyles.lavender} pageNumber={3}>
-      <PageHeader emoji="🧾" title="نتیجه غربالگری آرمان" accent={accentStyles.lavender} />
+      <PageHeader emoji="🧾" title={`نتیجه غربالگری ${childInfo.name}`} accent={accentStyles.lavender} />
 
       <div className="overflow-hidden rounded-2xl border-2 border-[#E4DCF8] bg-white/85 shadow-sm">
         <div className="flex items-center justify-between bg-[#F0EDFC] px-4 py-2">
@@ -135,7 +135,7 @@ export const TenMonthsIntroPage = forwardRef<HTMLDivElement>(function TenMonthsI
     <PageShell ref={ref} accent={accentStyles.mint} pageNumber={4}>
       <PageHeader
         emoji="🌱"
-        title="در ۱۰ ماهگی چه مهارت‌هایی در حال شکل‌گیری هستند؟"
+        title={`در ${childInfo.age} چه مهارت‌هایی در حال شکل‌گیری هستند؟`}
         accent={accentStyles.mint}
       />
 

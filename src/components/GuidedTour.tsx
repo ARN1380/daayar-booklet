@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toFaDigits } from "@/lib/fa";
+import { childInfo } from "@/data/content";
 
 /** localStorage flag: set once the tour has been finished or skipped. */
 export const TOUR_STORAGE_KEY = "arman-booklet-tour-v1";
@@ -23,7 +24,7 @@ interface TourStep {
 const steps: TourStep[] = [
   {
     emoji: "🌸",
-    title: "به کتابچه‌ی آرمان خوش آمدید!",
+    title: `به کتابچه‌ی ${childInfo.name} خوش آمدید!`,
     body:
       "چند نکته‌ی کوچک رو با هم ببینیم تا راحت‌تر توی کتابچه بگردید. کمتر از نیم دقیقه طول می‌کشه 💛",
     placement: "center",

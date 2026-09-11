@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { nextStep, reminder } from "@/data/content";
+import { nextStep, reminder, childInfo } from "@/data/content";
 import PageShell, { PageHeader, accentStyles } from "./PageShell";
 import { BabyFace, Cloud, Flower, Heart, Sparkle, Star } from "@/components/decor";
 import PageCanvas from "@/components/PageCanvas";
@@ -59,7 +59,7 @@ export const NextStepPage = forwardRef<HTMLDivElement>(function NextStepPage(_pr
         <div className="flex items-center gap-2">
           <span className="text-2xl leading-none">🗓️</span>
           <span className="rounded-full bg-white/85 px-3.5 py-1 text-[12.5px] font-black text-[#3E9B7E]">
-            غربالگری بعدی: ۱۲ ماهگی
+            غربالگری بعدی: {childInfo.nextScreeningAt}
           </span>
         </div>
         <p className="mt-3 text-[12px] font-medium leading-[2] text-[#3E6B5A]">
@@ -142,7 +142,7 @@ export const BackCoverPage = forwardRef<HTMLDivElement>(function BackCoverPage(_
             پایان
           </p>
           <p className="mt-3 text-[14px] font-bold leading-7 text-[#6B5B4E]">
-            با عشق، برای آرمان جان 🌱💛
+            با عشق، برای {childInfo.name} جان 🌱💛
           </p>
 
           <div className="mt-8 flex items-center gap-2">

@@ -44,18 +44,15 @@ agent parsed that text and laid it out page by page.
 
 ✅ Next.js app scaffolded and building cleanly (`npm run build` passes).
 ✅ `react-pageflip` installed; flip book works (verified via headless Chrome: all 19 pages render, flip book initializes, no console errors).
-✅ Content parsed into `src/data/content.ts`.
-✅ Cute SVG decorations in `src/components/decor.tsx`.
-✅ Page components in `src/components/pages/` + shared `PageShell.tsx`.
-✅ Booklet wired up in `src/components/Booklet.tsx` with prev/next controls, page indicator (Persian digits) and keyboard navigation (ArrowLeft/ArrowRight).
-✅ RTL Persian layout with Vazirmatn font in `src/app/layout.tsx`; homepage renders only the booklet.
+✅ Content compiled from `booklet.txt` (the human-editable plain-text source) into `src/data/content.ts` by `scripts/build-booklet.mjs` — see §3.
 
-Everything below describes how the code is organized. If you change content, edit `src/data/content.ts` (and page numbering in `src/components/Booklet.tsx` if pages are added/removed).
+Everything below describes how the code is organized. If you change content, edit **`booklet.txt`** (repo root), then `npm run content` regenerates `src/data/content.ts` — do **not** hand-edit `content.ts` (npm runs the generator automatically before `dev` and `build`). Page numbering lives in `src/components/Booklet.tsx` only if pages are added/removed.
 
 ### Useful commands
 ```bash
-npm run dev        # dev server (usually http://localhost:3001 if 3000 is busy)
-npm run build      # production build (verifies types)
+npm run dev        # dev server (usually http://localhost:3001 if 3000 is busy); regenerates booklet content first
+npm run build      # production build (verifies types); regenerates booklet content first
+npm run content    # booklet.txt → src/data/content.ts (runs automatically before dev/build)
 npm run lint       # eslint
 ```
 
@@ -63,15 +60,24 @@ npm run lint       # eslint
 
 ## 3. Source content
 
-The original text lives at (Windows path, outside the repo):
+**The booklet's text now lives in the repo** at `booklet.txt` (a plain,
+Notepad-editable Persian file, format documented at its top). `npm run content`
+(same as `predev`/`prebuild`) runs `scripts/build-booklet.mjs`, which parses it,
+validates the fixed layout constraints (5 domains, 3 statuses, game counts
+3/3/3/4/3, ≤6 skills, ≤5 steps), and regenerates `src/data/content.ts`. Do **not**
+hand-edit `content.ts`. Shared types are in `src/data/types.ts` (the only
+hand-written part of the data layer).
+
+The historical original text lives at (Windows path, outside the repo, kept for
+reference only):
 
 ```
 C:\Users\ARN\Desktop\Any\sare\karname arman.txt
 ```
 
-It is a Persian developmental-screening report card. It is **not copied into the
-repo** — parse it once, and hard-code the parsed result into a data file (e.g.
-`src/data/content.ts`). Do **not** read the file at runtime.
+It is a Persian developmental-screening report card, **not copied into the repo**
+and never read at runtime. `scripts/export-booklet.mjs` seeded `booklet.txt` from
+`content.ts` one time; it is not part of the build.
 
 ### Structure of the source text
 1. **Cover info** — کارنامه غربالگری رشد آرمان
@@ -229,6 +235,85 @@ an unused port instead of killing theirs.
 ---
 
 ## 9. Task log (newest first)
+
+### 2026-09-11 — Plain-text booklet source + build pipeline (DONE)
+
+1. **Asked for:** "I want to be able to put the text in the booklet myself" +
+   written plan for a future in-browser editor (Option 3).
+
+2. **Plan / approach:** move the source of truth for all Persian text out of
+   `src/data/content.ts` into `booklet.txt` (repo root), a plain, Notepad-editable
+   file whose format is documented at its top. A small Node parser
+   (`scripts/build-booklet.mjs`) compiles it back into `content.ts`, enforcing the
+   fixed layout constraints (5 domains, game counts 3/3/3/4/3, ≤6 skills, ≤5 steps)
+   so a text edit can never silently break the page layout. Types were split into
+   `src/data/types.ts` so the generator only emits data. Child name/age were
+   threaded through all hardcoded spots (cover, info, closing, tour, layout) so a
+   single name change in `booklet.txt` updates the entire book. The editor-plan
+   document (`docs/editor-plan.md`) captures the Option-3 design.
+
+3. **Done:**
+   - `src/data/types.ts` — new: interfaces and `StatusKey`/`AccentKey` types
+     moved here; the only hand-written file in the data layer.
+   - `booklet.txt` — new: 190-line Notepad-editable Persian source, seeded from
+     the old `content.ts` via `scripts/export-booklet.mjs` (one-time tool).
+   - `scripts/build-booklet.mjs` — new: ~340-line parser/generator/validator;
+     reads `booklet.txt`, validates structure, writes `content.ts`.
+   - `scripts/export-booklet.mjs` — new: one-time tool that imported the old
+     `content.ts` (Node 24 TS-stripping) and wrote the initial `booklet.txt`;
+     not part of the normal build; kept in repo as a reference.
+   - `src/data/content.ts` — now `AUTOGENERATED`; imports types from `./types`;
+     new `childInfo.nextScreeningAt` field ("۱۲ ماهگی").
+   - `package.json` — new scripts: `"content"`, `"predev"`, `"prebuild"`.
+   - Type-only imports in `PageShell.tsx`, `skills.tsx`, `games.tsx` now point at
+     `@/data/types`.
+   - Parameterized name/age: `cover.tsx` (big name, tagline), `info.tsx` (status
+     legend subtitle, results title, "در X ماهگی" heading), `closing.tsx` (pill
+     age, back cover tagline), `GuidedTour.tsx` (welcome step), `layout.tsx`
+     (metadata title/description).
+   - `AGENTS.md` — updated §2 commands, §3 source-of-truth note, §6 `content.ts`
+     note, this entry.
+   - `README.md` — "Editing the content" subsection updated; `npm run content`
+     added to the commands table; the file map updated with `types.ts` and
+     `booklet.txt`; "How to edit the booklet's text" rewritten for the txt file.
+   - `docs/editor-plan.md` — new: full design for the Option-3 browser editor
+     (form, export flow, validation, static-site constraint, traps).
+   - No page components changed.
+
+4. **Verified:** `npx tsc --noEmit`, `npm run lint`, `npm run build` all clean
+   (prebuild auto-regenerated `content.ts`). Automated parity check confirmed
+   every exported value (except the new `childInfo.nextScreeningAt`) is byte-
+   identical between the old hand-written `content.ts` and the new generated
+   version, including deep string comparison of every game step and ZWNJ-
+   sensitive Persian text. A running dev server on port 3000 serves HTTP 200 with
+   the correct `<title>` metadata. No browser probe was run because the page
+   content is byte-identical to before (visual regression risk: none).
+
+5. **Left to do:** the Option-3 in-browser editor (see `docs/editor-plan.md`).
+   Open ideas: a "preview pane" in the editor rendering the actual booklet
+   components at 550×733; a "Show the raw txt" clipboard copy mode for GitHub
+   web-editing users.
+
+6. **Traps:**
+   - `booklet.txt` format uses `## ` / `### ` / `#### ` / `- ` as structural
+     markers; the `;;` comment prefix is the only safe place for notes. If a
+     user puts `##` in a description or `-` at the start of a game title the
+     parser will misinterpret it. Document this clearly at the top of
+     `booklet.txt` (done).
+   - The `scripts/export-booklet.mjs` imports `.ts` directly; this works on
+     Node ≥24 (type-stripping by default) but will emit a warning and would break
+     on older Node. It is a one-time tool, not part of the build.
+   - Game counts per domain are enforced as [3,3,3,4,3] because `bookPages.tsx`
+     hard-codes the split for domain 3 (حل مسئله) across pages 13/14. If the
+     page layout ever changes, the enforced counts in `build-booklet.mjs` and the
+     game split in `bookPages.tsx` must be updated together.
+   - The book title line (`# `) is parsed as `bookletTitle`; it is used by
+     `layout.tsx` metadata but not by the cover page (which uses a decorative
+     two-line layout). Changing the title changes the browser tab, not the cover.
+   - `content.ts` is now regenerated on every `dev` and `build`. Hand-editing
+     it is possible but pointless — your changes will be overwritten.
+   - The `nextScreeningAt` field lives in `childInfo` (not in `nextStep`), so
+     the closing page pill reads it from one canonical source.
 
 ### 2026-09-11 — Covers: spine shadow moved to the bound (right) edge (DONE)
 

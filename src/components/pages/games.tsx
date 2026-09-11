@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import type { AccentKey, Game } from "@/data/content";
+import type { AccentKey, Game } from "@/data/types";
 import PageShell, { PageHeader, type AccentStyle, accentStyles } from "./PageShell";
 import { toFaDigits } from "@/lib/fa";
 
