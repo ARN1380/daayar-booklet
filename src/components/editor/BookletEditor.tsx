@@ -244,12 +244,19 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug: fileSlug, data: bookletData }),
       });
-      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; file?: string } | null;
+      const json = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; file?: string; mode?: "github" | "local" }
+        | null;
       if (res.ok && json?.ok) {
         clearDraft(draftKeySlug);
         setSaveMsg({
           kind: "ok",
-          text: "✓ ذخیره شد در " + json.file + " — با اجرای npm run dev (یا push) کتابچه دوباره ساخته می‌شود.",
+          text:
+            json.mode === "github"
+              ? "✓ ذخیره شد در " +
+                json.file +
+                " — به GitHub ارسال شد و سایت به‌زودی به‌صورت خودکار به‌روز می‌شود."
+              : "✓ ذخیره شد در " + json.file + " — با اجرای npm run dev (یا push) کتابچه دوباره ساخته می‌شود.",
         });
       } else {
         setSaveMsg({ kind: "err", text: json?.error ?? "ذخیره ناموفق بود." });
@@ -347,7 +354,9 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
             <code className="rounded bg-white/80 px-1.5 py-0.5">
               booklets/{slug || "…"}.json
             </code>{" "}
-            ذخیره می‌شود. بعد اجرای «npm run dev» (یا push) کتابچه دوباره ساخته می‌شود 🌸
+            ذخیره می‌شود. در سایتِ منتشرشده (Vercel) این فایل مستقیم به GitHub ارسال
+            می‌شود و سایت خودش دوباره ساخته می‌شود؛ در اجرای محلی باید بعداً
+            «npm run dev» یا push را اجرا کنید 🌸
           </p>
           <p className="mt-1.5 flex flex-wrap items-center gap-2">
             <span className="text-[#6E9A88]">✍️ تغییرات شما به‌صورت خودکار در همین مرورگر ذخیره می‌شود (پیش‌نویس).</span>

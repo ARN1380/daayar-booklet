@@ -253,6 +253,65 @@ an unused port instead of killing theirs.
 
 ## 9. Task log (newest first)
 
+### 2026-09-13 — Deployed save: commit via GitHub API, Vercel auto-redeploys (DONE)
+
+1. **Asked for:** the deployed site must let an ordinary user create/edit a child
+   booklet by clicking the editor's «ذخیره در پروژه» — with no terminal work, no
+   manual rebuild. "i want a simple json file as a database ... you dont need
+   rebuild to show the new kid booklet." After weighing options (repo-fs is
+   read-only on Vercel; a runtime-fetch rewrite is big), the user chose the
+   **GitHub-backed save (Option A)**.
+
+2. **Plan / approach:** a deployed route cannot `writeFileSync` into the repo
+   (Vercel FS is read-only, and static pages are built at deploy time anyway),
+   so the save route now has two paths:
+   - **Deployed (`GITHUB_TOKEN` set):** the route commits `booklets/<slug>.json`
+     to the repo via the GitHub Contents API (GET to learn the current `sha` →
+     PUT with base64 content; handles both create and update). Vercel watches
+     `main`, auto-rebuilds (its prebuild runs `npm run content`, regenerating
+     `content-map.ts` and the SSG pages), and the new child's URL goes live
+     ~1 min later. Nobody runs anything.
+   - **Local dev (no `GITHUB_TOKEN`):** the old `fs` write into `booklets/`
+     stays, so the existing `npm run dev` flow is untouched.
+   The response gained a `mode: "github" | "local"` field so the editor shows
+   the right success message (auto-update vs. run npm dev / push). Env vars:
+   `GITHUB_TOKEN` (fine-grained PAT, Contents Read+Write), optional
+   `GITHUB_REPO` (default `ARN1380/daayar-booklet`) and `GITHUB_BRANCH`
+   (default `main`). Secrets stay server-side.
+
+3. **Done:**
+   - `src/app/admin/api/save/route.ts` — rewritten: `commitToGithub()` +
+     `looksLikeBookletData` validation unchanged; two-path POST.
+   - `src/components/editor/BookletEditor.tsx` — save success message branches
+     on `json.mode`; the save-flow note explains the Vercel auto-deploy vs the
+     local dev/push path.
+
+4. **Verified:** `npx tsc --noEmit` ✓, `npm run lint` ✓, `npm run build` ✓
+   (routes unchanged: `/` static, `/[slug]` SSG, `/admin/api/save` dynamic).
+   Live route probes (`next start` on 3116): with no `GITHUB_TOKEN`, POST saves
+   `booklets/test-github-route.json` (then deleted) returning `mode:"local"`, 200;
+   with `GITHUB_TOKEN=ghp_bogus`, POST hits the GitHub path and returns
+   `{"ok":false,"error":"ارسال به GitHub ناموفق بود — توکن را بررسی کنید."}` 500.
+   Real-token end-to-end (commit → Vercel deploy) is NOT testable from this
+   machine — it needs the user's real PAT.
+
+5. **Left to do:** the user must create the fine-grained PAT for
+   `ARN1380/daayar-booklet` and add `GITHUB_TOKEN` (and optionally
+   `GITHUB_REPO`/`GITHUB_BRANCH`) to the Vercel project env vars, then hit
+   deploy. Nothing further in code. **Do not commit/push until the user says so
+   explicitly** — the user gave a direct instruction to that effect.
+
+6. **Traps:**
+   - The GitHub path is chosen purely by `process.env.GITHUB_TOKEN` being set
+     at runtime on the server. Locally, don't export a token or every save will
+     commit to GitHub instead of writing the local file.
+   - Vercel's deploy only happens if the repo is connected and `prebuild` runs
+     `npm run content` — do not remove that script or new booklets won't be SSG'd.
+   - GitHub Contents API rate limits (60/hr unauth, 5000/hr with token): a burst
+     of saves could 403 — the catch returns the generic Persian token error.
+   - The PUT needs the file's `sha` for updates; GET-404 means "create". The
+     route handles both; don't drop the `sha` logic or updates fail with 422.
+
 ### 2026-09-12 — Editable section titles (DONE)
 
 1. **Asked for:** make the collapsible section titles in the editor editable
