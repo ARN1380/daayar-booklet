@@ -1,7 +1,8 @@
 import { forwardRef } from "react";
-import type { AccentKey, Game } from "@/data/types";
+import type { AccentKey, BookletTitles, Game } from "@/data/types";
 import PageShell, { PageHeader, type AccentStyle, accentStyles } from "./PageShell";
-import { toFaDigits } from "@/lib/fa";
+import { orDash, toFaDigits } from "@/lib/fa";
+import { pageTitle } from "@/lib/titles";
 
 interface GamePageProps {
   accentKey: AccentKey;
@@ -11,11 +12,12 @@ interface GamePageProps {
   pageNumber: number;
   /** Show the shared games intro paragraph at the top (first games page only). */
   intro?: string;
+  titles?: Partial<BookletTitles>;
 }
 
 /** One page of suggested games for a skill domain. */
 const GamePage = forwardRef<HTMLDivElement, GamePageProps>(function GamePage(
-  { accentKey, domainEmoji, domainName, games, pageNumber, intro },
+  { accentKey, domainEmoji, domainName, games, pageNumber, intro, titles },
   ref
 ) {
   const accent = accentStyles[accentKey];
@@ -23,20 +25,20 @@ const GamePage = forwardRef<HTMLDivElement, GamePageProps>(function GamePage(
     <PageShell ref={ref} accent={accent} pageNumber={pageNumber}>
       <PageHeader
         emoji="🎯"
-        title="بازی‌ها و فعالیت‌های پیشنهادی"
+        title={pageTitle(titles, "games", "بازی‌ها و فعالیت‌های پیشنهادی")}
         accent={accent}
-        subtitle={`${domainEmoji} ${domainName}`}
+        subtitle={`${orDash(domainEmoji)} ${orDash(domainName)}`}
       />
 
       {intro && (
         <p className="mb-3 rounded-2xl bg-[#FFF6E9] px-4 py-2.5 text-[11.5px] font-medium leading-[1.9] text-[#8A7566]">
-          {intro}
+          {orDash(intro)}
         </p>
       )}
 
       <div className="flex flex-1 flex-col gap-3">
         {games.map((game, i) => (
-          <GameCard key={game.title} game={game} index={i} accent={accent} />
+          <GameCard key={i} game={game} index={i} accent={accent} />
         ))}
       </div>
 
@@ -57,21 +59,25 @@ function GameCard({ game, index, accent }: { game: Game; index: number; accent: 
         >
           {toFaDigits(index + 1)}
         </span>
-        <span className="text-lg leading-none">{game.emoji}</span>
+        <span className="text-lg leading-none">{orDash(game.emoji)}</span>
         <h3 className="text-[14px] font-extrabold" style={{ color: accent.deep }}>
-          {game.title}
+          {orDash(game.title)}
         </h3>
       </div>
       <ul className="mt-2 space-y-1.5">
-        {game.steps.map((step, i) => (
-          <li key={i} className="flex gap-2 text-[11.5px] font-medium leading-[1.85] text-[#6B5A4C]">
-            <span
-              className="mt-[9px] inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-              style={{ backgroundColor: accent.strong }}
-            />
-            <span>{step}</span>
-          </li>
-        ))}
+        {game.steps.length === 0 ? (
+          <li className="text-[11.5px] font-bold text-[#C9B7A5]">−</li>
+        ) : (
+          game.steps.map((step, i) => (
+            <li key={i} className="flex gap-2 text-[11.5px] font-medium leading-[1.85] text-[#6B5A4C]">
+              <span
+                className="mt-[9px] inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{ backgroundColor: accent.strong }}
+              />
+              <span>{orDash(step)}</span>
+            </li>
+          ))
+        )}
       </ul>
     </div>
   );

@@ -56,6 +56,25 @@ export interface ParagraphBlock {
 export type Reminder = ParagraphBlock;
 export type NextStep = ParagraphBlock;
 
+/**
+ * The five editable section/page titles. Empty string means "use the default
+ * Persian title" (what the pages hardcoded before), so existing booklets that
+ * lack this block render exactly as they used to. `titles` on BookletData is
+ * optional for that reason.
+ */
+export interface BookletTitles {
+  /** مشخصات کودک (page 1 header) */
+  childInfo: string;
+  /** وضعیت مهارت‌های رشدی (page 2 header) */
+  statuses: string;
+  /** نتیجه غربالگری (page 3 header; default appends the child's name) */
+  results: string;
+  /** مهارت‌ها در ۱۰ ماهگی (page 4 header; default appends the child's age) */
+  tenMonths: string;
+  /** بازی‌ها و فعالیت‌های پیشنهادی (games pages header) */
+  games: string;
+}
+
 export type AccentKey = "blue" | "mint" | "pink" | "lavender" | "peach";
 
 /**
@@ -73,4 +92,6 @@ export interface BookletData {
   domainGames: DomainGames[];
   reminder: Reminder;
   nextStep: NextStep;
+  /** Editable section/page titles. Optional: empty means "use the default". */
+  titles?: Partial<BookletTitles>;
 }

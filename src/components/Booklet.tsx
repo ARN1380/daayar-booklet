@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import HTMLFlipBook from "react-pageflip";
 import {
   buildBookPages,
@@ -44,7 +43,7 @@ function isNumbered(
   return page?.kind === "numbered" && typeof page.pageNumber === "number";
 }
 
-export default function Booklet({ content, slug }: { content: BookletData; slug: string }) {
+export default function Booklet({ content }: { content: BookletData }) {
   const bookRef = useRef<FlipBookHandle | null>(null);
   // Children are memoized so react-pageflip doesn't re-clone pages on every render.
   const { nodes: pages, meta } = useMemo(() => buildBookPages(content), [content]);

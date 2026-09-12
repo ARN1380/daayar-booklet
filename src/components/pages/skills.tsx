@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import type { DomainSkill } from "@/data/types";
 import PageShell, { PageHeader, accentStyles } from "./PageShell";
 import { Sparkle } from "@/components/decor";
+import { orDash } from "@/lib/fa";
 
 /** One page describing a single skill domain's milestones at 10 months. */
 const SkillPage = forwardRef<HTMLDivElement, { domain: DomainSkill; pageNumber: number }>(
@@ -9,33 +10,41 @@ const SkillPage = forwardRef<HTMLDivElement, { domain: DomainSkill; pageNumber: 
     const accent = accentStyles[domain.accent];
     return (
       <PageShell ref={ref} accent={accent} pageNumber={pageNumber}>
-        <PageHeader emoji={domain.emoji} title={domain.name} accent={accent} />
+        <PageHeader emoji={orDash(domain.emoji)} title={orDash(domain.name)} accent={accent} />
 
         <div
           className="rounded-2xl border-2 px-4 py-3.5"
           style={{ borderColor: accent.soft, backgroundColor: accent.soft }}
         >
-          <p className="text-[12.5px] font-bold leading-[2] text-[#4d3f33]">{domain.intro}</p>
+          <p className="text-[12.5px] font-bold leading-[2] text-[#4d3f33]">{orDash(domain.intro)}</p>
         </div>
 
         <p className="mb-2 mt-4 text-[12px] font-extrabold text-[#8A7566]">
           نمونه‌هایی از مهارت‌هایی که در این سن شکل می‌گیرن:
         </p>
         <div className="flex flex-1 flex-col gap-2">
-          {domain.bullets.map((bullet) => (
-            <div
-              key={bullet}
-              className="flex items-center gap-3 rounded-2xl bg-white/85 px-4 py-2.5 shadow-sm"
-            >
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-black text-white"
-                style={{ backgroundColor: accent.strong }}
+          {domain.bullets.length === 0 ? (
+            <p className="rounded-2xl bg-white/85 px-4 py-2.5 text-[12.5px] font-bold text-[#C9B7A5]">
+              −
+            </p>
+          ) : (
+            domain.bullets.map((bullet, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-2xl bg-white/85 px-4 py-2.5 shadow-sm"
               >
-                {domain.emoji}
-              </span>
-              <span className="text-[12.5px] font-bold leading-6 text-[#5B4A3F]">{bullet}</span>
-            </div>
-          ))}
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-black text-white"
+                  style={{ backgroundColor: accent.strong }}
+                >
+                  {domain.emoji}
+                </span>
+                <span className="text-[12.5px] font-bold leading-6 text-[#5B4A3F]">
+                  {orDash(bullet)}
+                </span>
+              </div>
+            ))
+          )}
         </div>
 
         {/* big faded domain emoji in the corner */}

@@ -58,18 +58,22 @@ function buildPreviewPages(c: ReturnType<typeof toContentShape>): PreviewEntry[]
   ];
 
   const numbered: PreviewEntry[] = [
-    { node: <ChildInfoPage childInfo={c.childInfo} />, label: "۱ — مشخصات کودک" },
+    { node: <ChildInfoPage childInfo={c.childInfo} titles={c.titles} />, label: "۱ — مشخصات کودک" },
     {
-      node: <StatusLegendPage childInfo={c.childInfo} statuses={c.statuses} />,
+      node: <StatusLegendPage childInfo={c.childInfo} statuses={c.statuses} titles={c.titles} />,
       label: "۲ — وضعیت مهارت‌ها",
     },
-    { node: <ResultsPage childInfo={c.childInfo} results={c.results} />, label: "۳ — نتیجه غربالگری" },
+    {
+      node: <ResultsPage childInfo={c.childInfo} results={c.results} titles={c.titles} />,
+      label: "۳ — نتیجه غربالگری",
+    },
     {
       node: (
         <TenMonthsIntroPage
           childInfo={c.childInfo}
           tenMonthsIntro={c.tenMonthsIntro}
           domainSkills={c.domainSkills}
+          titles={c.titles}
         />
       ),
       label: "۴ — مهارت‌ها در ۱۰ ماهگی",
@@ -88,6 +92,7 @@ function buildPreviewPages(c: ReturnType<typeof toContentShape>): PreviewEntry[]
           games={p.slice ? p.g.games.slice(p.slice[0], p.slice[1]) : p.g.games}
           intro={p.intro}
           pageNumber={p.n}
+          titles={c.titles}
         />
       ),
       label: `${p.n} — بازی‌های ${p.g.emoji} ${p.g.name}${p.slice ? p.slice[0] === 0 ? " (۱ از ۲)" : " (۲ از ۲)" : ""}`,

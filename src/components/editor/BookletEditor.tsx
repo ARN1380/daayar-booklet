@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ListEditor from "./ListEditor";
 import Preview from "./Preview";
-import { editorFromContent, emptyEditorData, toContentShape, type EditorData, type DomainIdentity, type EditableStatus } from "./bookletData";
+import { editorFromContent, emptyEditorData, emptyTitles, toContentShape, type EditorData, type DomainIdentity, type EditableStatus } from "./bookletData";
 import { validateBooklet } from "./validateBooklet";
-import type { BookletData, ChildInfo, Game, StatusKey } from "@/data/types";
+import type { BookletData, BookletTitles, ChildInfo, Game, StatusKey } from "@/data/types";
 import { toFaDigits } from "@/lib/fa";
 
 /**
@@ -26,17 +26,97 @@ interface BookletEditorProps {
   content: BookletData | null;
 }
 
+// ---------- draft autosave in localStorage ----------
+//
+// Every keypress is persisted locally (per slug) so a page refresh does not
+// wipe the form (only the browser and this slug, not the server). The saved
+// draft takes priority over `content` when the editor opens, so half-finished
+// edits survive a reload; the «پاک کردن پیش‌نویس» button below discards it.
+
+const DRAFT_PREFIX = "arman-booklet-draft";
+
+function draftKey(slug: string): string {
+  return `${DRAFT_PREFIX}:${slug || "new"}`;
+}
+
+function saveDraft(slug: string, data: EditorData, newSlug: string): void {
+  try {
+    localStorage.setItem(
+      draftKey(slug),
+      JSON.stringify({ v: 1, data, newSlug, at: Date.now() })
+    );
+  } catch {
+    // storage unavailable (private mode) — editing still works, just no autosave
+  }
+}
+
+function loadDraft(slug: string): { data: EditorData; newSlug: string } | null {
+  try {
+    const raw = localStorage.getItem(draftKey(slug));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { v?: number; data?: EditorData; newSlug?: unknown };
+    if (!parsed || parsed.v !== 1 || !parsed.data) return null;
+    return {
+      // Old drafts (pre-titles) lack the titles object — normalize it so the
+      // editor never reads undefined keys.
+      data: { ...parsed.data, titles: emptyTitles(parsed.data.titles) },
+      newSlug: typeof parsed.newSlug === "string" ? parsed.newSlug : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearDraft(slug: string): void {
+  try {
+    localStorage.removeItem(draftKey(slug));
+  } catch {
+    // ignore
+  }
+}
+
 // ---------- small presentational pieces ----------
 
-function Section({ title, children, defaultOpen }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function Section({
+  title,
+  emoji,
+  titleValue,
+  titlePlaceholder,
+  onTitleChange,
+  children,
+  defaultOpen,
+}: {
+  title?: string;
+  emoji?: string;
+  titleValue?: string;
+  titlePlaceholder?: string;
+  onTitleChange?: (v: string) => void;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const editableTitle = !!onTitleChange;
   return (
     <details
       open={defaultOpen}
       className="group rounded-3xl border-2 border-[#F0D9B8] bg-white/80 shadow-sm"
     >
-      <summary className="flex cursor-pointer select-none items-center justify-between rounded-3xl bg-[#FFF6E9] px-5 py-3.5 text-[15px] font-black text-[#5B4A3F] transition hover:bg-[#FDF1E0]">
-        <span>{title}</span>
-        <span className="text-[11px] font-bold text-[#C9A76E]">▾</span>
+      <summary className="flex cursor-pointer select-none items-center gap-2 rounded-3xl bg-[#FFF6E9] px-5 py-3.5 text-[15px] font-black text-[#5B4A3F] transition hover:bg-[#FDF1E0]">
+        {editableTitle ? (
+          <>
+            {emoji && <span className="shrink-0">{emoji}</span>}
+            <input
+              dir="rtl"
+              value={titleValue ?? ""}
+              onChange={(e) => onTitleChange(e.target.value)}
+              placeholder={titlePlaceholder}
+              className="w-full min-w-0 flex-1 bg-transparent px-0 text-[15px] font-black text-[#5B4A3F] outline-none placeholder:text-[#C9A76E]"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </>
+        ) : (
+          <span className="min-w-0 flex-1">{title ?? emoji}</span>
+        )}
+        <span className="shrink-0 text-[11px] font-bold text-[#C9A76E]">▾</span>
       </summary>
       <div className="flex flex-col gap-4 px-5 py-4">{children}</div>
     </details>
@@ -69,10 +149,15 @@ function DomainBadge({ domain }: { domain: DomainIdentity }) {
 // ---------- the editor page ----------
 
 export default function BookletEditor({ slug, content }: BookletEditorProps) {
-  const [data, setData] = useState<EditorData>(() =>
-    content ? editorFromContent(content) : emptyEditorData()
-  );
-  const [newSlug, setNewSlug] = useState("");
+  const [data, setData] = useState<EditorData>(() => {
+    const draft = loadDraft(slug);
+    if (draft) return draft.data;
+    return content ? editorFromContent(content) : emptyEditorData();
+  });
+  const [newSlug, setNewSlug] = useState<string>(() => {
+    const draft = loadDraft(slug);
+    return draft ? draft.newSlug : "";
+  });
   const [showPreview, setShowPreview] = useState(false);
   const [showText, setShowText] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -86,11 +171,29 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
   const bookletData = useMemo(() => toContentShape(data), [data]);
   const exportedText = useMemo(() => JSON.stringify(bookletData, null, 2), [bookletData]);
 
+  // Persist every change to localStorage (per-slug draft). Runs on the client
+  // only, so the browser-only storage access is safe here.
+  const draftKeySlug = slug || "new";
+  useEffect(() => {
+    saveDraft(draftKeySlug, data, newSlug);
+  }, [draftKeySlug, data, newSlug]);
+
+  // Discard the local draft and restore the last saved state (or a blank form).
+  const resetDraft = () => {
+    clearDraft(draftKeySlug);
+    setData(content ? editorFromContent(content) : emptyEditorData());
+    setNewSlug("");
+    setSaveMsg(null);
+  };
+
   const upd = (fn: (d: EditorData) => EditorData) => setData(fn);
 
   // scalar fields
   const setSimple = <K extends keyof EditorData>(key: K, value: EditorData[K]) =>
     upd((d) => ({ ...d, [key]: value }));
+
+  const setTitle = (key: keyof BookletTitles, value: string) =>
+    upd((d) => ({ ...d, titles: { ...d.titles, [key]: value } }));
 
   const setChild = (key: keyof ChildInfo, value: string) =>
     upd((d) => ({ ...d, childInfo: { ...d.childInfo, [key]: value } }));
@@ -143,6 +246,7 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
       });
       const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; file?: string } | null;
       if (res.ok && json?.ok) {
+        clearDraft(draftKeySlug);
         setSaveMsg({
           kind: "ok",
           text: "✓ ذخیره شد در " + json.file + " — با اجرای npm run dev (یا push) کتابچه دوباره ساخته می‌شود.",
@@ -213,7 +317,15 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
             <input
               dir="ltr"
               value={newSlug}
-              onChange={(e) => setNewSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-{2,}/g, "-"))}
+              onChange={(e) =>
+                setNewSlug(
+                  e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9-]/g, "")
+                    .replace(/-{2,}/g, "-")
+                    .replace(/^-+|-+$/g, "")
+                )
+              }
               placeholder="sara-ahmadi"
               className="w-full rounded-xl border-2 border-[#A9D9C7] bg-white px-3.5 py-2 text-[13px] font-bold text-[#3E6B5A] outline-none transition placeholder:text-[#A9C5B8] focus:border-[#6ECCAF]"
             />
@@ -230,11 +342,24 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
 
         {/* save-flow note */}
         <div className="mb-5 rounded-2xl border-2 border-[#F5D9B8] bg-[#FFF6E9] px-4 py-3 text-[12px] font-bold leading-6 text-[#8A7566]">
-          با دکمه‌ی «ذخیره در پروژه» همین متن، در همین پروژه، داخل فایل{" "}
-          <code className="rounded bg-white/80 px-1.5 py-0.5">
-            booklets/{slug || "…"}.json
-          </code>{" "}
-          ذخیره می‌شود. بعد اجرای «npm run dev» (یا push) کتابچه دوباره ساخته می‌شود 🌸
+          <p>
+            با دکمه‌ی «ذخیره در پروژه» همین متن، در همین پروژه، داخل فایل{" "}
+            <code className="rounded bg-white/80 px-1.5 py-0.5">
+              booklets/{slug || "…"}.json
+            </code>{" "}
+            ذخیره می‌شود. بعد اجرای «npm run dev» (یا push) کتابچه دوباره ساخته می‌شود 🌸
+          </p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-2">
+            <span className="text-[#6E9A88]">✍️ تغییرات شما به‌صورت خودکار در همین مرورگر ذخیره می‌شود (پیش‌نویس).</span>
+            <button
+              type="button"
+              onClick={resetDraft}
+              className="rounded-full border border-[#F0D9B8] bg-white px-3 py-1 text-[11px] font-extrabold text-[#B4552E] transition hover:bg-[#FDF1E7]"
+              title="حذف پیش‌نویس و بازگشت به آخرین حالت ذخیره‌شده"
+            >
+              🗑 پاک کردن پیش‌نویس
+            </button>
+          </p>
         </div>
 
         {/* save result / error */}
@@ -315,7 +440,12 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
             </Field>
           </Section>
 
-          <Section title="👶 مشخصات کودک">
+          <Section
+            emoji="👶"
+            titleValue={data.titles.childInfo}
+            titlePlaceholder="مشخصات کودک"
+            onTitleChange={(v) => setTitle("childInfo", v)}
+          >
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="نام و نام خانوادگی">
                 <input dir="rtl" value={data.childInfo.name} onChange={(e) => setChild("name", e.target.value)} className={inputClass} />
@@ -363,7 +493,12 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
             </div>
           </Section>
 
-          <Section title="🌱 وضعیت مهارت‌ها (سبز / زرد / نارنجی)">
+          <Section
+            emoji="🌱"
+            titleValue={data.titles.statuses}
+            titlePlaceholder="وضعیت مهارت‌های رشدی"
+            onTitleChange={(v) => setTitle("statuses", v)}
+          >
             <div className="flex flex-col gap-3">
               {data.statuses.map((s, i) => (
                 <div
@@ -387,7 +522,12 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
             </div>
           </Section>
 
-          <Section title="🧾 نتیجه‌ی غربالگری">
+          <Section
+            emoji="🧾"
+            titleValue={data.titles.results}
+            titlePlaceholder={`نتیجه غربالگری ${data.childInfo.name.trim() || "…"}`}
+            onTitleChange={(v) => setTitle("results", v)}
+          >
             <div className="flex flex-col gap-2.5">
               {data.domains.map((dom, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 rounded-2xl border-2 border-[#F0D9B8] bg-white px-3.5 py-2.5">
@@ -408,7 +548,12 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
             </div>
           </Section>
 
-          <Section title="📖 مهارت‌ها در ۱۰ ماهگی">
+          <Section
+            emoji="📖"
+            titleValue={data.titles.tenMonths}
+            titlePlaceholder={`در ${data.childInfo.age.trim() || "…"} چه مهارت‌هایی در حال شکل‌گیری هستند؟`}
+            onTitleChange={(v) => setTitle("tenMonths", v)}
+          >
             <Field label="مقدمه">
               <textarea dir="rtl" value={data.tenMonthsIntro} onChange={(e) => setSimple("tenMonthsIntro", e.target.value)} className={areaClass} />
             </Field>
@@ -435,7 +580,12 @@ export default function BookletEditor({ slug, content }: BookletEditorProps) {
             ))}
           </Section>
 
-          <Section title="🎯 بازی‌ها و فعالیت‌های پیشنهادی">
+          <Section
+            emoji="🎯"
+            titleValue={data.titles.games}
+            titlePlaceholder="بازی‌ها و فعالیت‌های پیشنهادی"
+            onTitleChange={(v) => setTitle("games", v)}
+          >
             <Field label="مقدمه">
               <textarea dir="rtl" value={data.gamesIntro} onChange={(e) => setSimple("gamesIntro", e.target.value)} className={areaClass} />
             </Field>

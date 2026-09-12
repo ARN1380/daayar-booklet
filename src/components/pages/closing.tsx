@@ -3,6 +3,7 @@ import type { ChildInfo, NextStep, Reminder } from "@/data/types";
 import PageShell, { PageHeader, accentStyles } from "./PageShell";
 import { BabyFace, Cloud, Flower, Heart, Sparkle, Star } from "@/components/decor";
 import PageCanvas from "@/components/PageCanvas";
+import { orDash } from "@/lib/fa";
 
 // ---------- Reminder ----------
 
@@ -14,7 +15,7 @@ export const ReminderPage = forwardRef<HTMLDivElement, { reminder: Reminder }>(
           <span className="text-6xl leading-none drop-shadow-sm">💛</span>
         </div>
 
-        <PageHeader emoji="🌷" title={r.title} accent={accentStyles.peach} />
+        <PageHeader emoji="🌷" title={orDash(r.title)} accent={accentStyles.peach} />
 
         <div
           className="flex flex-1 flex-col justify-center gap-3 rounded-3xl border-2 px-5 py-4"
@@ -23,15 +24,19 @@ export const ReminderPage = forwardRef<HTMLDivElement, { reminder: Reminder }>(
             background: "linear-gradient(170deg, #FFF6E9 0%, #FDECF3 100%)",
           }}
         >
-          {r.lines.map((line, i) => (
-            <p
-              key={i}
-              className="text-[13.5px] font-bold leading-[2.1] text-[#6B4A3A]"
-              style={{ textAlign: i === 2 ? "center" : "right" }}
-            >
-              {line}
-            </p>
-          ))}
+          {r.lines.length === 0 ? (
+            <p className="text-center text-[13.5px] font-bold text-[#C9B7A5]">−</p>
+          ) : (
+            r.lines.map((line, i) => (
+              <p
+                key={i}
+                className="text-[13.5px] font-bold leading-[2.1] text-[#6B4A3A]"
+                style={{ textAlign: i === 2 ? "center" : "right" }}
+              >
+                {orDash(line)}
+              </p>
+            ))
+          )}
           <div className="mt-1 flex items-center justify-center gap-2">
             <Heart className="h-4 w-4 text-[#F4A3C2]" />
             <Heart className="h-5 w-5 text-[#F5B56B]" />
@@ -58,17 +63,17 @@ export const NextStepPage = forwardRef<
 >(function NextStepPage({ nextStep: ns, childInfo: ci }, ref) {
   return (
     <PageShell ref={ref} accent={accentStyles.mint} pageNumber={17}>
-      <PageHeader emoji="📌" title={ns.title} accent={accentStyles.mint} />
+      <PageHeader emoji="📌" title={orDash(ns.title)} accent={accentStyles.mint} />
 
       <div className="rounded-2xl border-2 border-[#D9F2E7] bg-[#E4F7EF] px-4 py-4">
         <div className="flex items-center gap-2">
           <span className="text-2xl leading-none">🗓️</span>
           <span className="rounded-full bg-white/85 px-3.5 py-1 text-[12.5px] font-black text-[#3E9B7E]">
-            غربالگری بعدی: {ci.nextScreeningAt}
+            غربالگری بعدی: {orDash(ci.nextScreeningAt)}
           </span>
         </div>
         <p className="mt-3 text-[12px] font-medium leading-[2] text-[#3E6B5A]">
-          {ns.lines[0]}
+          {orDash(ns.lines[0] ?? "")}
         </p>
       </div>
 
@@ -79,7 +84,7 @@ export const NextStepPage = forwardRef<
       </div>
 
       <div className="mt-3 rounded-2xl border-2 border-[#E4DCF8] bg-[#F0EDFC] px-4 py-3">
-        <p className="text-[11.5px] font-medium leading-[2] text-[#5A4E8A]">{ns.lines[2]}</p>
+        <p className="text-[11.5px] font-medium leading-[2] text-[#5A4E8A]">{orDash(ns.lines[2] ?? "")}</p>
       </div>
 
       <div className="pointer-events-none absolute bottom-10 left-5 opacity-20">
@@ -148,7 +153,7 @@ export const BackCoverPage = forwardRef<HTMLDivElement, { childInfo: ChildInfo }
             پایان
           </p>
           <p className="mt-3 text-[14px] font-bold leading-7 text-[#6B5B4E]">
-            با عشق، برای {ci.name} جان 🌱💛
+            با عشق، برای {orDash(ci.name)} جان 🌱💛
           </p>
 
           <div className="mt-8 flex items-center gap-2">

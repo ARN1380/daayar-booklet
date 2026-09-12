@@ -253,6 +253,153 @@ an unused port instead of killing theirs.
 
 ## 9. Task log (newest first)
 
+### 2026-09-12 — Editable section titles (DONE)
+
+1. **Asked for:** make the collapsible section titles in the editor editable
+   (e.g. «📖 مهارت‌ها در ۱۰ ماهگی»), keep the current values as placeholders
+   (used when the user leaves the field empty), and per clarification the
+   typed title must also appear on the booklet page headers.
+
+2. **Plan / approach:** a new optional `titles` block on `BookletData` maps the
+   five *page-header* sections: `childInfo`, `statuses`, `results`,
+   `tenMonths`, `games`. Empty string = "use the default Persian title" (the
+   exact headers the pages hardcoded before), so existing booklets render
+   byte-identically; a filled string overrides the page header. `titles` is
+   optional on `BookletData` (`Partial<BookletTitles>`) so `booklets/*.json`
+   need no migration and all three validators need no change (the generator and
+   save route pass the parsed object through untouched). In the editor the five
+   Section `<summary>` labels became inline `<input>`s (emoji stays as a static
+   prefix, `stopPropagation` keeps the summary click from toggling the details);
+   their placeholder shows the current default so "empty = default" is visible.
+   Old localStorage drafts (pre-titles) are normalized on load via
+   `emptyTitles()` so `data.titles.foo` never reads undefined. Dynamic defaults
+   stay dynamic: results placeholder = «نتیجه غربالگری {name}», tenMonths
+   placeholder = «در {age} چه مهارت‌هایی…». Shared default-resolution logic
+   lives in `src/lib/titles.ts` (`pageTitle()`) so pages and the editor can't
+   drift.
+
+3. **Done:**
+   - `src/data/types.ts` — `BookletTitles` interface + `titles?: Partial<BookletTitles>` on `BookletData`.
+   - `src/lib/titles.ts` — new: `pageTitle(titles, key, fallback)`.
+   - `src/components/pages/info.tsx` — `ChildInfoPage`, `StatusLegendPage`, `ResultsPage`, `TenMonthsIntroPage` accept `titles` and use `pageTitle` for their headers.
+   - `src/components/pages/games.tsx` — `GamePage` same, subtitle unchanged.
+   - `src/components/bookPages.tsx` — passes `content.titles` to those pages.
+   - `src/components/editor/Preview.tsx` — passes `c.titles` in its preview stack.
+   - `src/components/editor/bookletData.ts` — `EditorData.titles`, `editorFromContent` reads `content.titles`, `emptyTitles()` helper, `toContentShape` emits `titles`.
+   - `src/components/editor/BookletEditor.tsx` — `Section` gained emoji/titleValue/titlePlaceholder/onTitleChange; the 5 sections (👶 مشخصات کودک، 🌱 وضعیت مهارت‌ها، 🧾 نتیجه غربالگری، 📖 مهارت‌ها در ۱۰ ماهگی، 🎯 بازی‌ها) got editable titles; draft loader normalizes missing `titles`.
+
+4. **Verified:** `npm run content` ✓ (both booklets build), `npx tsc --noEmit` ✓,
+   `npm run lint` ✓, `npm run build` ✓ (routes unchanged). Browser (fresh
+   `next start` on 3114): the editor's five summary labels render as editable
+   textboxes with the expected placeholders; typing «رنگ‌های وضعیت رشدی» into the
+   🌱 statuses title updated the section header input AND the live preview page 2
+   header («رنگ‌های وضعیت رشدی» won over the default) with 0 console errors; the
+   typed value persisted to `localStorage["arman-booklet-draft:arman-daliri"].data.titles`
+   (then cleared, so the user's real editor stays untouched — do not leave test
+   drafts around). `/arman-daliri` still renders 20 flip-book pages with 0
+   console errors.
+
+5. **Left to do:** nothing required. Open idea: a per-page «عنوان» caption in the
+   preview so editors see which header a title maps to.
+
+6. **Traps:**
+   - `titles` is optional everywhere: leave it out of a JSON file and the pages
+     fall back to the hardcoded defaults. Do NOT make it required in the
+     validators — that would break older files.
+   - The editor title inputs live inside `<summary>`; they need
+     `onClick={(e) => e.stopPropagation()}` or clicking into them toggles the
+     collapsible open/closed state.
+   - Old drafts have no `titles` key — `loadDraft` must merge via `emptyTitles()`
+     or `data.titles.foo` throws on an old stored draft.
+   - The 5 title keys match page-headers, NOT the reminder/next-step sections
+     (those already had editable `title` fields) and NOT «📄 عنوان کتابچه»
+     (already editable). Only the five page-header sections got inputs.
+   - `pageTitle` trims before deciding empty, so a whitespace-only saved title
+     acts as empty (falls back to the default).
+
+### 2026-09-12 — Empty sections, default emojis, localStorage drafts, preview crash fix (DONE)
+
+1. **Asked for:** (a) let booklet sections be empty and render "−" when a
+   section is empty, (b) pre-fill the emoji fields with a default emoji the
+   user can edit, (c) autosave every filled field to localStorage so a page
+   refresh doesn't lose the data, (d) fix the «👁 پیش‌نمایش صفحات» button on
+   `/admin/new` which threw.
+
+2. **Plan / approach:** the preview crash was a data-arity bug, not a layout one:
+   `emptyEditorData()` set `resultStatus: [...STATUS_KEYS]` (3 entries) but
+   there are 5 domains, so `toContentShape` produced `status: undefined` for
+   domains 4–5 and `StatusChip`/`statusStyles[undefined].soft` blew up. Fixed by
+   seeding one 🟢 per domain. Then, since empty sections must be *valid* (the
+   pages show "−" for them), all three validation layers (browser
+   `validateBooklet.ts`, server `scripts/build-booklet.mjs`, `/admin/api/save`
+   `looksLikeBookletData`) were relaxed from "non-empty text required" to
+   "structure only" — the fixed counts (5 domains, 3 statuses in order, game
+   counts 3/3/3/4/3, status-key validity, emoji cross-table equality, ≤6
+   bullets / ≤5 steps) are still enforced; blank text is fine. Emoji defaults
+   come from `emptyEditorData()` (domain `💬🏃🖐️🧩🤝`, 16 game emojis in a flat
+   pool across the 16 games) and remain editable. A `orDash()` helper
+   (`src/lib/fa.ts`) renders "−" for empty strings on every page that reads
+   content (cover name, child info, statuses, results, ten-months intro, skill
+   intro/bullets, game title/emoji/steps, reminder, next-step); empty *arrays*
+   render a single "−" row. Draft persistence uses one localStorage record per
+   slug (`arman-booklet-draft:<slug|new>`, `{v:1,data,newSlug}`), loaded in the
+   `useState` initializers (draft beats `content`), written from a
+   `useEffect` on every change, with a «🗑 پاک کردن پیش‌نویس» reset button in
+   the save-flow note.
+
+3. **Done:**
+   - `src/lib/fa.ts` — new `orDash()`.
+   - `src/components/editor/bookletData.ts` — `resultStatus` now 5 entries;
+     `GAME_EMOJI_DEFAULTS` (16) + `DOMAIN_EMOJIS`; `emptyEditorData` seeds them.
+   - `src/components/editor/validateBooklet.ts` — rewritten: structure-only.
+   - `scripts/build-booklet.mjs` — `isText()` helper; ALL "must not be empty"
+     checks removed (kept counts, order, emoji equality, limits).
+   - `src/app/admin/api/save/route.ts` — `isNonEmptyString` → `isString`.
+   - `src/components/editor/BookletEditor.tsx` — draft load/save/clear helpers +
+     effect; «🗑 پاک کردن پیش‌نویس» button in the save-flow note.
+   - `src/components/pages/` `cover.tsx`, `info.tsx`, `skills.tsx`, `games.tsx`,
+     `closing.tsx` — `orDash()` everywhere; duplicate-key (empty-string) React
+     keys changed to index keys; empty arrays render one "−".
+   - `src/components/Booklet.tsx` — dropped unused `Link`/`slug` props.
+
+4. **Verified:** `npm run content` ✓ (arns + an all-empty test booklet both
+   build), `npx tsc --noEmit` ✓, `npm run lint` 0 warnings (all three
+   pre-existing unused-var warnings fixed), `npm run build` ✓ (routes unchanged).
+   Browser (Playwright, fresh `next start` on 3114): «👁 پیش‌نمایش صفحات» on
+   `/admin/new` opens the live preview with **no crash** and 0 console errors;
+   empty fields render "−" everywhere (cover name, child info, statuses,
+   results, skills, games, reminder, next-step) as previewed; the 16 default
+   game emojis 🎈⚽🧸🚂🪁🐶🧩🎨🎵📚🪀🛁🐢🦋🌼🚀 appear in order; typing a field →
+   `localStorage["arman-booklet-draft:new"]` updated; reload restores the text;
+   «🗑 پاک کردن پیش‌نویس» clears it; `/arman-daliri` still renders the real
+   name/filled content (tour open, 0 console errors); `/admin/edit/arman-daliri`
+   loads its own draft key separate from `new`. Save API round-trip: POSTing an
+   all-empty `{slug:"empty-test",data}` file returns `{ok:true}` and the builder
+   accepts it; test file removed afterwards. (Note: curl from Git-bash mangles
+   multibyte emoji in `-d` — POST real booklets via `fetch`/the editor, or use
+   `--data-binary @file` from the repo dir with the `{slug,data}` envelope.)
+
+5. **Left to do:** nothing required. Open idea: a "this is a draft, not yet
+   saved" badge when the localStorage draft differs from `content`.
+
+6. **Traps:**
+   - `orDash` renders the literal character "−" (U+2212 minus) for blank text;
+   don't search for an ASCII hyphen.
+   - `resultStatus` MUST stay length 5 (one per domain). `emptyEditorData` and
+     `toContentShape` are the two places that pair domains ↔ statuses; if either
+     drifts the `statusStyles[undefined]` crash returns.
+   - The three validators (validateBooklet.ts, build-booklet.mjs, save route)
+     are three copies of the "structure-only" rules — keep them in sync. Emoji
+     cross-table equality is still enforced by the builder and by the API's
+     count checks, so a saved file with mismatched domain emoji fails `npm run
+     content`; the editor prevents it (single shared domain emoji).
+   - Draft restore beats `content` on purpose (a refreshed edit should not lose
+     typed text). The reset button exists precisely because drafts are sticky —
+     if localStorage ever holds a stale model, clear it or click «پاک کردن
+     پیشنویس».
+   - The `nextScreeningAt` dash: `NextStepPage` reads `ns.lines[0]` / `ns.lines[2]`
+     — the "−" placeholder also guards missing indices (`?? ""`).
+
 ### 2026-09-11 — JSON storage, /admin routing & save API; daayar landing (DONE)
 
 1. **Asked for:** "i dont want to downlaod the thing to get working. you should

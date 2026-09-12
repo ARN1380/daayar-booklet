@@ -180,6 +180,14 @@ has a small admin panel behind its slug:
   results, domain skills, games…), a **validation report** at the top (shown
   live, in Persian, with the counts the build enforces), a pages **preview**
   and a «نمایش متن» modal that shows the raw JSON.
+- Every field is **autosaved to the browser** as a local draft (one record per
+  slug, `arman-booklet-draft:<slug>` in `localStorage`), so a page refresh never
+  loses typed text — the draft is what the editor reopens with. A
+  «🗑 پاک کردن پیش‌نویس» button in the save note discards it.
+- Sections may be left **empty**: the validation only checks structure (counts,
+  limits, emoji cross-table equality), and the booklet pages render "−" for an
+  empty section instead of a hole. New booklets come pre-filled with default
+  domain/game emojis that stay editable.
 - **Save** («💾 ذخیره در پروژه») POSTs the edited booklet to
   `/admin/api/save`, which writes it back into the project's own
   `booklets/<slug>.json` file. No download, no copy-paste into a txt file.
@@ -197,7 +205,8 @@ has a small admin panel behind its slug:
 2. Write digits in Persian; use `toFaDigits()` when a number is computed.
 3. Do not change the validation-enforced structure: 5 domains, 3 statuses,
    game counts 3/3/3/4/3, ≤6 skills per domain, ≤5 steps per game. The editor
-   blocks saving until these hold.
+   blocks saving until these hold. Text *content* may be empty — empty
+   sections render "−" in the booklet.
 4. If you change text that is *long*, re-check the page in the browser — pages
    are fixed-height and content that overflows gets clipped, not scrolled.
    Shorten the text or split it onto another page instead.

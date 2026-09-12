@@ -33,5 +33,5 @@ export default async function BookletPage({
   const { slug } = await params;
   const content = BOOKLETS[slug];
   if (!content) notFound();
-  return <Booklet content={content} slug={slug} />;
+  return <Booklet content={content} />;
 }

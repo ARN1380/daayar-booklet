@@ -14,28 +14,28 @@ import type { BookletData } from "@/data/types";
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-function isNonEmptyString(v: unknown): v is string {
-  return typeof v === "string" && v.trim() !== "";
+function isString(v: unknown): v is string {
+  return typeof v === "string";
 }
 
 /** Minimal shape check mirroring scripts/build-booklet.mjs's file-level checks. */
 function looksLikeBookletData(body: unknown): body is BookletData {
   const b = body as BookletData;
   if (!b || typeof b !== "object") return false;
-  if (!isNonEmptyString(b.bookletTitle)) return false;
+  if (!isString(b.bookletTitle)) return false;
   const ci = b.childInfo;
   if (!ci || typeof ci !== "object") return false;
   for (const k of ["name", "birthDate", "screeningDate", "age", "nextScreeningAt"] as const) {
-    if (!isNonEmptyString(ci[k])) return false;
+    if (!isString(ci[k])) return false;
   }
   if (!Array.isArray(b.statuses) || b.statuses.length !== 3) return false;
   if (!Array.isArray(b.results) || b.results.length !== 5) return false;
-  if (!isNonEmptyString(b.tenMonthsIntro)) return false;
+  if (!isString(b.tenMonthsIntro)) return false;
   if (!Array.isArray(b.domainSkills) || b.domainSkills.length !== 5) return false;
-  if (!isNonEmptyString(b.gamesIntro)) return false;
+  if (!isString(b.gamesIntro)) return false;
   if (!Array.isArray(b.domainGames) || b.domainGames.length !== 5) return false;
-  if (!b.reminder || !isNonEmptyString(b.reminder.title)) return false;
-  if (!b.nextStep || !isNonEmptyString(b.nextStep.title)) return false;
+  if (!b.reminder || !isString(b.reminder.title)) return false;
+  if (!b.nextStep || !isString(b.nextStep.title)) return false;
   return true;
 }
 

@@ -9,9 +9,10 @@
 // Each file is a BookletData object; the shape and the fixed layout constraints
 // live in src/data/types.ts and here: 5 domains, 3 statuses (🟢🟡🟠 order),
 // game counts 3/3/3/4/3, ≤6 skill bullets, ≤5 game steps, and matching emoji
-// across the three domain tables. `src/app/admin/api/save/route.ts` writes
-// these files, so the /admin editor saves straight into the project (no manual
-// download + drop step).
+// across the three domain tables. Only STRUCTURE is enforced — text fields may
+// be left empty on purpose (the pages render "−" for empty sections).
+// `src/app/admin/api/save/route.ts` writes these files, so the /admin editor
+// saves straight into the project (no manual download + drop step).
 
 import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { dirname, join, basename } from "node:path";
@@ -36,27 +37,29 @@ function check(cond, msg) {
   if (!cond) fail(msg);
 }
 
+/** Text fields may be empty on purpose (the pages render "−" for them). */
+const isText = (v) => typeof v === "string";
+
 /** Validates a parsed BookletData (from a booklets/*.json file). */
 function validateBooklet(b, slug) {
   const file = `booklets/${slug}.json`;
   check(slug && SLUG_RE.test(slug), `نام فایل «${file}» slug معتبر نیست (فقط حروف کوچک، عدد و «-»)`);
   check(b && typeof b === "object", `فایل «${file}» باید یک آبجکت BookletData باشد`);
-  check(typeof b.bookletTitle === "string" && b.bookletTitle.trim() !== "", `«${file}» عنوان کتابچه ندارد`);
+  check(isText(b.bookletTitle), `«${file}» عنوان کتابچه ندارد`);
 
   const ci = b.childInfo;
   check(ci && typeof ci === "object", `«${file}» childInfo ندارد`);
   for (const key of ["name", "birthDate", "screeningDate", "age", "nextScreeningAt"]) {
-    check(typeof ci?.[key] === "string" && ci[key].trim() !== "", `«${file}» childInfo.${key} خالی است`);
+    check(isText(ci?.[key]), `«${file}» childInfo.${key} خالی است`);
   }
 
   check(Array.isArray(b.statuses) && b.statuses.length === 3, `«${file}» باید دقیقاً ۳ وضعیت داشته باشد`);
   const statusKeys = [];
   b.statuses.forEach((s, i) => {
-    check(s && typeof s, `وضعیت ${i + 1} در «${file}» ناقص است`);
+    check(s && typeof s === "object", `وضعیت ${i + 1} در «${file}» ناقص است`);
     check(STATUS_BY_EMOJI[s.emoji] === s.key, `وضعیت ${i + 1} در «${file}» اموجی/کلید نمی‌خورد (باید 🟢🟡🟠 باشد)`);
     statusKeys.push(s.key);
-    check(typeof s.title === "string" && s.title.trim() !== "", `عنوان وضعیت ${i + 1} در «${file}» خالی است`);
-    check(typeof s.description === "string" && s.description.trim() !== "", `توضیح وضعیت ${i + 1} در «${file}» خالی است`);
+    check(isText(s.title) && isText(s.description), `وضعیت ${i + 1} در «${file}» ناقص است`);
   });
   check(
     statusKeys.join(",") === ["onTrack", "monitor", "evaluate"].join(","),
@@ -66,42 +69,36 @@ function validateBooklet(b, slug) {
   check(Array.isArray(b.results) && b.results.length === 5, `«${file}» باید دقیقاً ۵ نتیجه حیطه داشته باشد`);
   const keySet = new Set(statusKeys);
   b.results.forEach((r, i) => {
-    check(r && typeof r.emoji === "string" && r.emoji.trim() !== "", `حیطه ${i + 1} «${file}» اموجی ندارد`);
-    check(typeof r.name === "string" && r.name.trim() !== "", `حیطه ${i + 1} «${file}» نام ندارد`);
+    check(r && typeof r === "object" && isText(r.emoji) && isText(r.name), `حیطه ${i + 1} «${file}» (results) ناقص است`);
     check(keySet.has(r.status), `وضعیت حیطه «${r.name}» در «${file}» شناخته نشد (باید یکی از وضعیت‌های تعریف‌شده باشد)`);
   });
 
-  check(typeof b.tenMonthsIntro === "string" && b.tenMonthsIntro.trim() !== "", `مقدمه «مهارت‌ها در ۱۰ ماهگی» در «${file}» خالی است`);
+  check(isText(b.tenMonthsIntro), `مقدمه «مهارت‌ها» در «${file}» ناقص است`);
 
   check(Array.isArray(b.domainSkills) && b.domainSkills.length === 5, `«${file}» باید ۵ حیطه در domainSkills داشته باشد`);
   b.domainSkills.forEach((d, i) => {
-    check(d.emoji && d.name, `حیطه ${i + 1} «${file}» (domainSkills) ناقص است`);
+    check(d && typeof d === "object", `حیطه ${i + 1} «${file}» (domainSkills) ناقص است`);
     check(d.accent === ACCENTS[i], `accent حیطه ${i + 1} «${file}» باید ${ACCENTS[i]} باشد`);
-    check(typeof d.intro === "string" && d.intro.trim() !== "", `مقدمه حیطه «${d.name}» در «${file}» خالی است`);
-    check(Array.isArray(d.bullets) && d.bullets.length >= 1 && d.bullets.length <= 6, `حیطه «${d.name}» در «${file}» باید ۱ تا ۶ مهارت داشته باشد`);
-    check(d.bullets.every((x) => typeof x === "string" && x.trim() !== ""), `در «${file}» یک مهارت خالی است`);
+    check(isText(d.intro), `حیطه ${i + 1} «${file}» (domainSkills) intro ندارد`);
+    check(Array.isArray(d.bullets) && d.bullets.length <= 6 && d.bullets.every(isText), `حیطه «${d.name}» در «${file}» حداکثر ۶ مهارت مجاز است`);
   });
 
-  check(typeof b.gamesIntro === "string" && b.gamesIntro.trim() !== "", `مقدمه «بازی‌ها» در «${file}» خالی است`);
+  check(isText(b.gamesIntro), `مقدمه «بازی‌ها» در «${file}» ناقص است`);
 
   check(Array.isArray(b.domainGames) && b.domainGames.length === 5, `«${file}» باید ۵ حیطه در domainGames داشته باشد`);
   b.domainGames.forEach((dg, i) => {
-    check(dg.emoji && dg.name, `حیطه ${i + 1} «${file}» (domainGames) ناقص است`);
+    check(dg && typeof dg === "object", `حیطه ${i + 1} «${file}» (domainGames) ناقص است`);
     check(dg.accent === ACCENTS[i], `accent حیطه ${i + 1} «${file}» باید ${ACCENTS[i]} باشد`);
     check(Array.isArray(dg.games) && dg.games.length === GAME_COUNTS[i], `حیطه «${dg.name}» در «${file}» باید دقیقاً ${GAME_COUNTS[i]} بازی داشته باشد`);
     dg.games.forEach((g, gi) => {
-      check(typeof g.title === "string" && g.title.trim() !== "", `بازی ${gi + 1} حیطه «${dg.name}» در «${file}» عنوان ندارد`);
-      check(typeof g.emoji === "string" && g.emoji.trim() !== "", `بازی ${gi + 1} حیطه «${dg.name}» در «${file}» اموجی ندارد`);
-      check(Array.isArray(g.steps) && g.steps.length >= 1 && g.steps.length <= 5, `بازی «${g.title}» در «${file}» باید ۱ تا ۵ قدم داشته باشد`);
-      check(g.steps.every((x) => typeof x === "string" && x.trim() !== ""), `در «${file}» یک قدم خالی است`);
+      check(g && typeof g === "object" && isText(g.title) && isText(g.emoji), `بازی ${gi + 1} حیطه «${dg.name}» در «${file}» ناقص است`);
+      check(Array.isArray(g.steps) && g.steps.length <= 5 && g.steps.every(isText), `بازی «${g.title}» در «${file}» حداکثر ۵ قدم مجاز است`);
     });
   });
 
-  check(b.reminder && typeof b.reminder.title === "string" && b.reminder.title.trim() !== "", `یادآوری «${file}» عنوان ندارد`);
-  check(b.reminder && Array.isArray(b.reminder.lines) && b.reminder.lines.some((l) => l.trim() !== ""), `متن یادآوری «${file}» خالی است`);
+  check(b.reminder && typeof b.reminder === "object" && isText(b.reminder.title) && Array.isArray(b.reminder.lines) && b.reminder.lines.every(isText), `یادآوری «${file}» ناقص است`);
 
-  check(b.nextStep && typeof b.nextStep.title === "string" && b.nextStep.title.trim() !== "", `قدم بعدی «${file}» عنوان ندارد`);
-  check(b.nextStep && Array.isArray(b.nextStep.lines) && b.nextStep.lines.some((l) => l.trim() !== ""), `متن قدم بعدی «${file}» خالی است`);
+  check(b.nextStep && typeof b.nextStep === "object" && isText(b.nextStep.title) && Array.isArray(b.nextStep.lines) && b.nextStep.lines.every(isText), `قدم بعدی «${file}» ناقص است`);
 
   // Cross-section sanity (domain emoji must line up across results/skills/games;
   // names may differ slightly — "حل مسئله" vs "حل مسئله و شناخت").

@@ -70,7 +70,7 @@ const SpacerPage = forwardRef<HTMLDivElement>(function SpacerPage(_props, ref) {
  *   right, the way a Persian book opens (Booklet.tsx does that mapping).
  */
 export function buildBookPages(content: BookletData): BookPages {
-  const { domainGames, domainSkills, gamesIntro } = content;
+  const { domainGames, domainSkills, gamesIntro, titles } = content;
   const gamePages = [
     { key: "g-comm", domain: domainGames[0], intro: gamesIntro, games: domainGames[0].games, pageNumber: 10 },
     { key: "g-gross", domain: domainGames[1], games: domainGames[1].games, pageNumber: 11 },
@@ -82,19 +82,22 @@ export function buildBookPages(content: BookletData): BookPages {
 
   /** The 17 numbered pages, in *reading* order (۱ … ۱۷). */
   const numbered: { node: ReactNode; pageNumber: number }[] = [
-    { node: <ChildInfoPage key="child-info" childInfo={content.childInfo} />, pageNumber: 1 },
+    { node: <ChildInfoPage key="child-info" childInfo={content.childInfo} titles={titles} />, pageNumber: 1 },
     {
       node: (
         <StatusLegendPage
           key="status"
           childInfo={content.childInfo}
           statuses={content.statuses}
+          titles={titles}
         />
       ),
       pageNumber: 2,
     },
     {
-      node: <ResultsPage key="results" childInfo={content.childInfo} results={content.results} />,
+      node: (
+        <ResultsPage key="results" childInfo={content.childInfo} results={content.results} titles={titles} />
+      ),
       pageNumber: 3,
     },
     {
@@ -104,6 +107,7 @@ export function buildBookPages(content: BookletData): BookPages {
           childInfo={content.childInfo}
           tenMonthsIntro={content.tenMonthsIntro}
           domainSkills={content.domainSkills}
+          titles={titles}
         />
       ),
       pageNumber: 4,
@@ -122,6 +126,7 @@ export function buildBookPages(content: BookletData): BookPages {
           games={g.games}
           intro={g.intro}
           pageNumber={g.pageNumber}
+          titles={titles}
         />
       ),
       pageNumber: g.pageNumber,

@@ -1,22 +1,28 @@
 import { forwardRef } from "react";
-import type { ChildInfo, DomainResult, DomainSkill, StatusInfo } from "@/data/types";
+import type { BookletTitles, ChildInfo, DomainResult, DomainSkill, StatusInfo } from "@/data/types";
 import PageShell, { PageHeader, StatusChip, accentStyles, statusStyles } from "./PageShell";
 import { Flower, Heart, Star } from "@/components/decor";
+import { pageTitle } from "@/lib/titles";
+import { orDash } from "@/lib/fa";
 
 // ---------- Child info ----------
 
-export const ChildInfoPage = forwardRef<HTMLDivElement, { childInfo: ChildInfo }>(
-  function ChildInfoPage({ childInfo: ci }, ref) {
+export const ChildInfoPage = forwardRef<HTMLDivElement, { childInfo: ChildInfo; titles?: Partial<BookletTitles> }>(
+  function ChildInfoPage({ childInfo: ci, titles }, ref) {
     const infoItems = [
-      { emoji: "👶", label: "نام و نام خانوادگی", value: ci.name },
-      { emoji: "🎂", label: "تاریخ تولد", value: ci.birthDate },
-      { emoji: "📋", label: "تاریخ انجام غربالگری", value: ci.screeningDate },
-      { emoji: "⏰", label: "سن هنگام غربالگری", value: ci.age },
+      { emoji: "👶", label: "نام و نام خانوادگی", value: orDash(ci.name) },
+      { emoji: "🎂", label: "تاریخ تولد", value: orDash(ci.birthDate) },
+      { emoji: "📋", label: "تاریخ انجام غربالگری", value: orDash(ci.screeningDate) },
+      { emoji: "⏰", label: "سن هنگام غربالگری", value: orDash(ci.age) },
     ];
 
     return (
       <PageShell ref={ref} accent={accentStyles.peach} pageNumber={1}>
-        <PageHeader emoji="👶" title="مشخصات کودک" accent={accentStyles.peach} />
+        <PageHeader
+          emoji="👶"
+          title={pageTitle(titles, "childInfo", "مشخصات کودک")}
+          accent={accentStyles.peach}
+        />
 
         <div className="grid grid-cols-2 gap-3">
           {infoItems.map((item) => (
@@ -47,13 +53,13 @@ export const ChildInfoPage = forwardRef<HTMLDivElement, { childInfo: ChildInfo }
 
 export const StatusLegendPage = forwardRef<
   HTMLDivElement,
-  { childInfo: ChildInfo; statuses: StatusInfo[] }
->(function StatusLegendPage({ childInfo: ci, statuses: st }, ref) {
+  { childInfo: ChildInfo; statuses: StatusInfo[]; titles?: Partial<BookletTitles> }
+>(function StatusLegendPage({ childInfo: ci, statuses: st, titles }, ref) {
   return (
     <PageShell ref={ref} accent={accentStyles.peach} pageNumber={2}>
       <PageHeader
         emoji="🌱"
-        title="وضعیت مهارت‌های رشدی"
+        title={pageTitle(titles, "statuses", "وضعیت مهارت‌های رشدی")}
         accent={accentStyles.peach}
         subtitle={`نتیجه‌ی ارزیابی پنج حیطه‌ی رشدی ${ci.name} جان با سه توصیف زیر به شما نمایش داده می‌شه. پس با توجه به توضیحات زیر برای گام بعدی مسیر رشد دردونه‌تون تصمیم بگیرین.`}
       />
@@ -70,11 +76,11 @@ export const StatusLegendPage = forwardRef<
               <div className="flex items-center gap-2">
                 <span className="text-lg leading-none">{status.emoji}</span>
                 <h3 className="text-[14px] font-extrabold" style={{ color: s.strong }}>
-                  {status.title}
+                  {orDash(status.title)}
                 </h3>
               </div>
               <p className="mt-1.5 text-[11.5px] font-medium leading-[1.95] text-[#6B5A4C]">
-                {status.description}
+                {orDash(status.description)}
               </p>
             </div>
           );
@@ -88,12 +94,16 @@ export const StatusLegendPage = forwardRef<
 
 export const ResultsPage = forwardRef<
   HTMLDivElement,
-  { childInfo: ChildInfo; results: DomainResult[] }
->(function ResultsPage({ childInfo: ci, results: rs }, ref) {
+  { childInfo: ChildInfo; results: DomainResult[]; titles?: Partial<BookletTitles> }
+>(function ResultsPage({ childInfo: ci, results: rs, titles }, ref) {
   const needsAttention = rs.filter((r) => r.status === "evaluate");
   return (
     <PageShell ref={ref} accent={accentStyles.lavender} pageNumber={3}>
-      <PageHeader emoji="🧾" title={`نتیجه غربالگری ${ci.name}`} accent={accentStyles.lavender} />
+      <PageHeader
+        emoji="🧾"
+        title={pageTitle(titles, "results", `نتیجه غربالگری ${orDash(ci.name)}`)}
+        accent={accentStyles.lavender}
+      />
 
       <div className="overflow-hidden rounded-2xl border-2 border-[#E4DCF8] bg-white/85 shadow-sm">
         <div className="flex items-center justify-between bg-[#F0EDFC] px-4 py-2">
@@ -102,13 +112,13 @@ export const ResultsPage = forwardRef<
         </div>
         {rs.map((row, i) => (
           <div
-            key={row.name}
+            key={i}
             className="flex items-center justify-between px-4 py-[9px]"
             style={{ backgroundColor: i % 2 === 0 ? "#FFFFFF" : "#FAF7FF" }}
           >
             <span className="flex items-center gap-2 text-[13px] font-bold text-[#5B4A3F]">
               <span className="text-lg leading-none">{row.emoji}</span>
-              {row.name}
+              {orDash(row.name)}
             </span>
             <StatusChip status={row.status} />
           </div>
@@ -121,7 +131,7 @@ export const ResultsPage = forwardRef<
             🧐 در این حیطه‌ها بررسی دقیق‌تر توسط متخصص پیشنهاد می‌شه:
           </p>
           <p className="mt-1 text-[12px] font-bold leading-6 text-[#8A5A3B]">
-            {needsAttention.map((r) => `${r.emoji} ${r.name}`).join("  •  ")}
+            {needsAttention.map((r) => `${r.emoji} ${orDash(r.name)}`).join("  •  ")}
           </p>
         </div>
       )}
@@ -137,29 +147,29 @@ export const ResultsPage = forwardRef<
 
 export const TenMonthsIntroPage = forwardRef<
   HTMLDivElement,
-  { childInfo: ChildInfo; tenMonthsIntro: string; domainSkills: DomainSkill[] }
->(function TenMonthsIntroPage({ childInfo: ci, tenMonthsIntro: intro, domainSkills: ds }, ref) {
+  { childInfo: ChildInfo; tenMonthsIntro: string; domainSkills: DomainSkill[]; titles?: Partial<BookletTitles> }
+>(function TenMonthsIntroPage({ childInfo: ci, tenMonthsIntro: intro, domainSkills: ds, titles }, ref) {
   return (
     <PageShell ref={ref} accent={accentStyles.mint} pageNumber={4}>
       <PageHeader
         emoji="🌱"
-        title={`در ${ci.age} چه مهارت‌هایی در حال شکل‌گیری هستند؟`}
+        title={pageTitle(titles, "tenMonths", `در ${orDash(ci.age)} چه مهارت‌هایی در حال شکل‌گیری هستند؟`)}
         accent={accentStyles.mint}
       />
 
       <div className="rounded-2xl border-2 border-[#D9F2E7] bg-[#E4F7EF] px-4 py-3.5">
-        <p className="text-[12px] font-medium leading-[1.95] text-[#3E6B5A]">{intro}</p>
+        <p className="text-[12px] font-medium leading-[1.95] text-[#3E6B5A]">{orDash(intro)}</p>
       </div>
 
       <p className="mt-4 mb-2 text-[12px] font-extrabold text-[#8A7566]">
         پنج حیطه‌ی رشدی که در ادامه می‌خونیم:
       </p>
       <div className="flex flex-col gap-2">
-        {ds.map((d) => {
+        {ds.map((d, di) => {
           const a = accentStyles[d.accent];
           return (
             <div
-              key={d.name}
+              key={di}
               className="flex items-center gap-3 rounded-2xl border-2 bg-white/85 px-4 py-2.5"
               style={{ borderColor: a.soft }}
             >
@@ -170,7 +180,7 @@ export const TenMonthsIntroPage = forwardRef<
                 {d.emoji}
               </span>
               <span className="flex-1 text-[13.5px] font-extrabold" style={{ color: a.deep }}>
-                {d.name}
+                {orDash(d.name)}
               </span>
               <Star className="h-4 w-4 text-[#F5B56B]/80" />
             </div>

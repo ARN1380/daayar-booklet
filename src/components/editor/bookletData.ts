@@ -6,13 +6,32 @@
 // the page components expect, so the editor's live preview reuses the real
 // pages and the same object is what gets written to disk.
 
-import type { BookletData, ChildInfo, Game, StatusKey } from "@/data/types";
+import type { BookletData, BookletTitles, ChildInfo, Game, StatusKey } from "@/data/types";
 
 // Fixed structure rules the parser also enforces (scripts/build-booklet.mjs).
 export const STATUS_KEYS: StatusKey[] = ["onTrack", "monitor", "evaluate"];
 export const STATUS_EMOJIS = ["🟢", "🟡", "🟠"] as const;
 export const ACCENTS = ["blue", "mint", "pink", "lavender", "peach"] as const;
 export const GAME_COUNTS = [3, 3, 3, 4, 3] as const;
+export const DOMAIN_EMOJIS = ["💬", "🏃", "🖐️", "🧩", "🤝"] as const;
+export const GAME_EMOJI_DEFAULTS = [
+  "🎈",
+  "⚽",
+  "🧸",
+  "🚂",
+  "🪁",
+  "🐶",
+  "🧩",
+  "🎨",
+  "🎵",
+  "📚",
+  "🪀",
+  "🛁",
+  "🐢",
+  "🦋",
+  "🌼",
+  "🚀",
+] as const;
 
 /** A skill domain identity, shared by the results/skills/games sections. */
 export interface DomainIdentity {
@@ -43,6 +62,8 @@ export interface EditorData {
   reminderLines: string[];
   nextStepTitle: string;
   nextStepLines: string[];
+  /** Editable section/page titles; empty string = use the default. */
+  titles: BookletTitles;
 }
 
 /** The editor's starting point: whatever content it was handed (a booklet). */
@@ -62,13 +83,28 @@ export function editorFromContent(content: BookletData): EditorData {
     reminderLines: [...content.reminder.lines],
     nextStepTitle: content.nextStep.title,
     nextStepLines: [...content.nextStep.lines],
+    titles: emptyTitles(content.titles),
+  };
+}
+
+/** Blank titles (empty → pages use their defaults). */
+export function emptyTitles(seed?: Partial<BookletTitles>): BookletTitles {
+  return {
+    childInfo: "",
+    statuses: "",
+    results: "",
+    tenMonths: "",
+    games: "",
+    ...(seed ?? {}),
   };
 }
 
 /**
  * A blank starting point for a brand-new child. The structure (5 domains, 3
  * statuses, fixed game counts) is already in place; every text field is empty
- * so the user has to fill them in.
+ * so the user has to fill them in. Domain and game emojis come pre-filled with
+ * defaults (editable), and every result status defaults to 🟢 so the preview
+ * never crashes on a missing status.
  */
 export function emptyEditorData(): EditorData {
   return {
@@ -81,22 +117,26 @@ export function emptyEditorData(): EditorData {
       nextScreeningAt: "",
     },
     statuses: STATUS_EMOJIS.map((emoji) => ({ emoji, title: "", description: "" })),
-    domains: ACCENTS.map((_accent, i) => ({
-      emoji: ["💬", "🏃", "🖐️", "🧩", "🤝"][i],
+    domains: DOMAIN_EMOJIS.map((emoji) => ({
+      emoji,
       name: "",
     })),
-    resultStatus: [...STATUS_KEYS],
+    resultStatus: DOMAIN_EMOJIS.map(() => "onTrack"),
     tenMonthsIntro: "",
     skillIntros: ACCENTS.map(() => ""),
     skillBullets: ACCENTS.map(() => []),
     gamesIntro: "",
-    games: GAME_COUNTS.map((count) =>
-      Array.from({ length: count }, () => ({ emoji: "", title: "", steps: [] }))
-    ),
+    games: (() => {
+      let k = 0;
+      return GAME_COUNTS.map((count) =>
+        Array.from({ length: count }, () => ({ emoji: GAME_EMOJI_DEFAULTS[k++] ?? "🎈", title: "", steps: [] }))
+      );
+    })(),
     reminderTitle: "",
     reminderLines: [],
     nextStepTitle: "",
     nextStepLines: [],
+    titles: emptyTitles(),
   };
 }
 
@@ -132,5 +172,6 @@ export function toContentShape(d: EditorData): BookletContent {
     })),
     reminder: { emoji: "💛", title: d.reminderTitle, lines: d.reminderLines },
     nextStep: { emoji: "📌", title: d.nextStepTitle, lines: d.nextStepLines },
+    titles: d.titles,
   };
 }

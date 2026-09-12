@@ -14,7 +14,8 @@
 import type { BookletData } from "./types";
 
 export const SLUG_LIST: string[] = [
-  "arman-daliri"
+  "arman-daliri",
+  "qwer"
 ];
 
 export const BOOKLETS: Record<string, BookletData> = {
@@ -325,6 +326,229 @@ export const BOOKLETS: Record<string, BookletData> = {
       "یادتون باشه: غربالگری، تشخیص اختلال نیست.",
       "اگر در یک یا چند حیطه نیاز به بررسی بیشتری وجود داشته باشد، ارزیابی دقیق‌تر توسط متخصص می‌تونه به تصمیم‌گیری بهتر و حمایت زودهنگام از کودک کمک کنه."
     ]
+  }
+},
+  "qwer": {
+  "bookletTitle": "عنو",
+  "childInfo": {
+    "name": "لبی",
+    "birthDate": "",
+    "screeningDate": "",
+    "age": "",
+    "nextScreeningAt": ""
+  },
+  "statuses": [
+    {
+      "key": "onTrack",
+      "emoji": "🟢",
+      "title": "",
+      "description": ""
+    },
+    {
+      "key": "monitor",
+      "emoji": "🟡",
+      "title": "",
+      "description": ""
+    },
+    {
+      "key": "evaluate",
+      "emoji": "🟠",
+      "title": "",
+      "description": ""
+    }
+  ],
+  "results": [
+    {
+      "emoji": "💬",
+      "name": "",
+      "status": "onTrack"
+    },
+    {
+      "emoji": "🏃",
+      "name": "",
+      "status": "onTrack"
+    },
+    {
+      "emoji": "🖐️",
+      "name": "",
+      "status": "onTrack"
+    },
+    {
+      "emoji": "🧩",
+      "name": "",
+      "status": "onTrack"
+    },
+    {
+      "emoji": "🤝",
+      "name": "",
+      "status": "onTrack"
+    }
+  ],
+  "tenMonthsIntro": "",
+  "domainSkills": [
+    {
+      "emoji": "💬",
+      "name": "",
+      "accent": "blue",
+      "intro": "",
+      "bullets": []
+    },
+    {
+      "emoji": "🏃",
+      "name": "",
+      "accent": "mint",
+      "intro": "",
+      "bullets": []
+    },
+    {
+      "emoji": "🖐️",
+      "name": "",
+      "accent": "pink",
+      "intro": "",
+      "bullets": []
+    },
+    {
+      "emoji": "🧩",
+      "name": "",
+      "accent": "lavender",
+      "intro": "",
+      "bullets": []
+    },
+    {
+      "emoji": "🤝",
+      "name": "",
+      "accent": "peach",
+      "intro": "",
+      "bullets": []
+    }
+  ],
+  "gamesIntro": "",
+  "domainGames": [
+    {
+      "emoji": "💬",
+      "name": "",
+      "accent": "blue",
+      "games": [
+        {
+          "emoji": "🎈",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "⚽",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "🧸",
+          "title": "",
+          "steps": []
+        }
+      ]
+    },
+    {
+      "emoji": "🏃",
+      "name": "",
+      "accent": "mint",
+      "games": [
+        {
+          "emoji": "🚂",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "🪁",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "🐶",
+          "title": "",
+          "steps": []
+        }
+      ]
+    },
+    {
+      "emoji": "🖐️",
+      "name": "",
+      "accent": "pink",
+      "games": [
+        {
+          "emoji": "🧩",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "🎨",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "🎵",
+          "title": "",
+          "steps": []
+        }
+      ]
+    },
+    {
+      "emoji": "🧩",
+      "name": "",
+      "accent": "lavender",
+      "games": [
+        {
+          "emoji": "📚",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "🪀",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "🛁",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "🐢",
+          "title": "",
+          "steps": []
+        }
+      ]
+    },
+    {
+      "emoji": "🤝",
+      "name": "",
+      "accent": "peach",
+      "games": [
+        {
+          "emoji": "🦋",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "🌼",
+          "title": "",
+          "steps": []
+        },
+        {
+          "emoji": "🚀",
+          "title": "",
+          "steps": []
+        }
+      ]
+    }
+  ],
+  "reminder": {
+    "emoji": "💛",
+    "title": "",
+    "lines": []
+  },
+  "nextStep": {
+    "emoji": "📌",
+    "title": "",
+    "lines": []
   }
 },
 };
